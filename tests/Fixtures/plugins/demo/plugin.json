@@ -1,0 +1,9 @@
+{
+    "slug": "demo",
+    "name": "Demo plugin",
+    "version": "1.0.0",
+    "description": "Fixture used by the test suite to exercise every extension point.",
+    "author": "Tidemark",
+    "namespace": "Fixtures\\Demo\\",
+    "provider": "Fixtures\\Demo\\DemoPlugin"
+}

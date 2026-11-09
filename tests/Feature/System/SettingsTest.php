@@ -1,0 +1,57 @@
+<?php
+
+namespace Tests\Feature\System;
+
+use App\Models\User;
+use App\Support\Settings;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class SettingsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_admin_saves_general_and_billing_settings(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->get('/admin/settings')->assertOk()->assertSee('Your business');
+        $this->actingAs($admin)->put('/admin/settings/general', ['s' => ['company__name' => 'Acme Hosting', 'company__email' => 'hi@acme.test', 'general__registration' => '0']])->assertRedirect('/admin/settings/general');
+        $this->actingAs($admin)->put('/admin/settings/billing', ['s' => ['billing__due_days' => '14', 'billing__invoice_prefix' => 'ACME-', 'billing__currency' => 'EUR']])->assertRedirect();
+
+        $this->assertSame('Acme Hosting', Settings::get('company.name'));
+        $this->assertFalse(Settings::bool('general.registration'));
+        $this->assertEquals(14, Settings::get('billing.due_days'));
+        $this->assertSame('ACME-', Settings::get('billing.invoice_prefix'));
+    }
+
+    public function test_blank_password_keeps_the_stored_secret(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->put('/admin/settings/email', ['s' => ['mail__password' => 'hunter2', 'mail__host' => 'smtp.test']]);
+        $this->actingAs($admin)->put('/admin/settings/email', ['s' => ['mail__password' => '', 'mail__host' => 'smtp2.test']]);
+
+        $this->assertSame('hunter2', Settings::get('mail.password'));
+        $this->assertSame('smtp2.test', Settings::get('mail.host'));
+    }
+
+    public function test_settings_are_admin_only_even_for_staff(): void
+    {
+        $staff = User::factory()->staff()->create();
+
+        $this->actingAs($staff)->get('/admin/settings')->assertForbidden();
+        $this->actingAs($staff)->put('/admin/settings/general', ['s' => ['company__name' => 'Hacked']])->assertForbidden();
+    }
+
+    public function test_customers_cannot_open_settings(): void
+    {
+        $this->actingAs($this->customer())->get('/admin/settings')->assertForbidden();
+    }
+
+    public function test_cron_url_requires_the_token(): void
+    {
+        $this->get('/cron/wrong')->assertNotFound();
+        config(['billing.cron_token' => 'secret-token']);
+        $this->get('/cron/secret-token')->assertOk()->assertSee('ok');
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "slug": "license-server",
+    "name": "License Server",
+    "version": "0.1.0",
+    "description": "Issue, verify and manage software licence keys for your products, with offline-verifiable signed responses.",
+    "author": "Tidemark",
+    "namespace": "Plugins\\LicenseServer\\",
+    "provider": "Plugins\\LicenseServer\\LicenseServerPlugin",
+    "requires": { "billing": ">=0.1" }
+}

@@ -1,0 +1,10 @@
+{
+    "slug": "paypal",
+    "name": "PayPal",
+    "version": "0.1.0",
+    "description": "Accept PayPal payments with Orders v2, including refunds and webhooks.",
+    "author": "Tidemark",
+    "namespace": "Plugins\\PayPal\\",
+    "provider": "Plugins\\PayPal\\PayPalPlugin",
+    "requires": { "billing": ">=0.1" }
+}

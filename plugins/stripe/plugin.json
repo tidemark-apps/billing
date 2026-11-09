@@ -1,0 +1,10 @@
+{
+    "slug": "stripe",
+    "name": "Stripe",
+    "version": "0.1.0",
+    "description": "Accept cards and wallets with Stripe Checkout. Refunds and webhooks included.",
+    "author": "Tidemark",
+    "namespace": "Plugins\\Stripe\\",
+    "provider": "Plugins\\Stripe\\StripePlugin",
+    "requires": { "billing": ">=0.1" }
+}

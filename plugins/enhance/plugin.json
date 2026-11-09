@@ -1,0 +1,10 @@
+{
+    "slug": "enhance",
+    "name": "Enhance Control Panel",
+    "version": "0.1.0",
+    "description": "Provision customer accounts, subscriptions and websites on an Enhance control panel.",
+    "author": "Tidemark",
+    "namespace": "Plugins\\Enhance\\",
+    "provider": "Plugins\\Enhance\\EnhancePlugin",
+    "requires": { "billing": ">=0.1" }
+}

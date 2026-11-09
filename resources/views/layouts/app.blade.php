@@ -1,0 +1,78 @@
+{{-- The signed-in shell for both areas. Set $area to "admin" or "portal" with @extends('layouts.app', ['area' => 'admin']). --}}
+@php
+    $area ??= auth()->user()?->isStaff() ? 'admin' : 'portal';
+    $nav = \App\Support\Navigation::for($area);
+    $company = \App\Support\Settings::get('company.name') ?: config('billing.name');
+    $logo = \App\Support\Settings::get('company.logo_url');
+    $user = auth()->user();
+@endphp
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    @include('partials.head', ['title' => trim($__env->yieldContent('title')) ?: null])
+    @stack('head')
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="app has-side">
+    <header class="topbar">
+        <div class="topbar-in">
+            <button class="btn ghost icon side-toggle" type="button" aria-label="Menu"><x-icon name="menu" :size="18" /></button>
+            <a class="brand" href="{{ route($area === 'admin' ? 'admin.dashboard' : 'portal.dashboard') }}">
+                @if ($area === 'portal' && $logo)<img class="brand-logo" src="{{ $logo }}" alt="{{ $company }}">
+                @elseif ($area === 'admin')<x-logo :size="26" /><span class="brand-name" style="margin-left:10px">Billing</span>
+                @else<x-logo :size="24" /><span class="brand-name" style="margin-left:10px">{{ $company }}</span>@endif
+            </a>
+            <div class="crumbs"><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-cur">{{ trim($__env->yieldContent('title')) ?: ($area === 'admin' ? 'Admin' : 'Client area') }}</span></div>
+            <div class="tb-right">
+                @if ($user->isStaff() && $area === 'portal')<a class="btn sm" href="{{ route('admin.dashboard') }}">Admin</a>@endif
+                @if (session('impersonator_id'))<form method="POST" action="{{ route('admin.impersonate.stop') }}">@csrf<button class="btn sm" type="submit">Stop viewing as client</button></form>@endif
+                <div class="pop-wrap">
+                    <button class="btn avatar-btn" type="button" data-pop-trigger aria-haspopup="menu" aria-expanded="false" aria-label="Account menu"><span class="avatar">{{ $user->initials() }}</span></button>
+                    <div class="pop hidden" role="menu" style="min-width:240px">
+                        <div class="who"><b>{{ $user->name }}</b><span class="muted">{{ $user->email }}</span></div>
+                        <hr>
+                        @if ($area === 'portal')<a class="item" href="{{ route('portal.profile') }}"><span>Profile</span><x-icon name="user" :size="14" /></a>@endif
+                        @if ($area === 'admin' && Route::has('admin.account.security.index'))<a class="item" href="{{ route('admin.account.security.index') }}"><span>Security</span><x-icon name="shield-check" :size="14" /></a>@endif
+                        @if ($user->isStaff())
+                            <a class="item" href="{{ $area === 'admin' ? route('portal.dashboard') : route('admin.dashboard') }}"><span>{{ $area === 'admin' ? 'Client area' : 'Admin' }}</span><x-icon name="{{ $area === 'admin' ? 'users' : 'shield-check' }}" :size="14" /></a>
+                        @endif
+                        <hr><div class="grp" id="theme-label">Theme</div>
+                        <div class="theme-seg" role="radiogroup" aria-labelledby="theme-label">
+                            <button type="button" role="radio" data-theme="light" aria-label="Light"><x-icon name="sun" /></button>
+                            <button type="button" role="radio" data-theme="dark" aria-label="Dark"><x-icon name="moon" /></button>
+                            <button type="button" role="radio" data-theme="system" aria-label="System"><x-icon name="monitor" /></button>
+                        </div>
+                        <hr>
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button class="item" type="submit" style="width:100%;background:none;border:0;cursor:pointer"><span>Sign out</span><x-icon name="log-out" :size="14" /></button></form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="app-body">
+        <aside class="side" aria-label="Main">
+            <nav class="side-scroll">
+                @foreach ($nav as $group => $items)
+                    <div class="side-grp">{{ $group }}</div>
+                    @foreach ($items as $i)
+                        <a class="side-link {{ $i['active'] ? 'on' : '' }}" href="{{ $i['url'] }}" title="{{ $i['label'] }}" @if($i['active']) aria-current="page" @endif><x-icon :name="$i['icon']" :size="16" /><span>{{ $i['label'] }}</span></a>
+                    @endforeach
+                @endforeach
+            </nav>
+            <div class="side-foot"><button class="side-collapse" type="button" aria-pressed="false" aria-label="Collapse sidebar"><x-icon name="panel-left" :size="16" /><span>Collapse</span></button></div>
+        </aside>
+        <div class="side-scrim" aria-hidden="true"></div>
+        <main class="app-main" id="main" tabindex="-1">
+            <div class="main">
+                @include('partials.flash')
+                @yield('content')
+                <p class="muted small" style="text-align:center;padding-top:24px">Powered by <a href="https://www.tidemarkanalytics.com" rel="noopener" style="text-decoration:underline;text-underline-offset:3px">Tidemark Billing</a> v{{ config('billing.version') }}</p>
+            </div>
+        </main>
+    </div>
+</div>
+<script src="{{ asset('assets/js/app.js') }}?v={{ @filemtime(public_path('assets/js/app.js')) }}" defer></script>
+@stack('scripts')
+</body>
+</html>

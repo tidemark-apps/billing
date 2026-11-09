@@ -1,0 +1,10 @@
+{
+    "slug": "directadmin",
+    "name": "DirectAdmin",
+    "version": "0.1.0",
+    "description": "Provision, suspend, unsuspend, upgrade and terminate hosting accounts on DirectAdmin servers, with one-click panel login for clients.",
+    "author": "Tidemark",
+    "namespace": "Plugins\\DirectAdmin\\",
+    "provider": "Plugins\\DirectAdmin\\DirectAdminPlugin",
+    "requires": { "billing": ">=0.1" }
+}

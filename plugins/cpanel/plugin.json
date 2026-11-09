@@ -1,0 +1,10 @@
+{
+    "slug": "cpanel",
+    "name": "cPanel & WHM",
+    "version": "0.1.0",
+    "description": "Provision, suspend, unsuspend, upgrade and terminate hosting accounts on cPanel & WHM servers, with one-click cPanel and webmail login for clients.",
+    "author": "Tidemark",
+    "namespace": "Plugins\\CPanel\\",
+    "provider": "Plugins\\CPanel\\CPanelPlugin",
+    "requires": { "billing": ">=0.1" }
+}

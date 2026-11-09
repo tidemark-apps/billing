@@ -1,0 +1,22 @@
+# Tidemark Billing with its data in a Docker volume (SQLite). Start it with:  docker compose up -d
+# then open http://localhost:8080/install to create your admin account.
+# (Or skip the installer: set BILLING_ADMIN_EMAIL and BILLING_ADMIN_PASSWORD below for an unattended first run.)
+services:
+  billing:
+    image: ghcr.io/tidemark-analytics/tidemark-billing:latest
+    # build: .          # uncomment to build from this checkout instead
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - billing-data:/data
+    environment:
+      # where customers reach the system; used in emails, invoice links and webhook URLs
+      APP_URL: http://localhost:8080
+      # BILLING_ADMIN_EMAIL: you@example.com
+      # BILLING_ADMIN_PASSWORD: change-me-please
+      # BILLING_COMPANY: Acme Hosting
+      # BILLING_CURRENCY: USD
+
+volumes:
+  billing-data:
