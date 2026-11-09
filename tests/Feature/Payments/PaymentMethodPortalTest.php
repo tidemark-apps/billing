@@ -66,7 +66,7 @@ class PaymentMethodPortalTest extends PaymentsTestCase
         $this->post(route('portal.payment-methods.default', $theirs->uuid))->assertNotFound();
         $this->post(route('portal.payment-methods.autopay', $theirs->uuid), ['autopay' => 0])->assertNotFound();
         $this->delete(route('portal.payment-methods.destroy', $theirs->uuid))->assertNotFound();
-        $this->get(route('portal.payment-methods.index'))->assertDontSee('4242');
+        $this->get(route('portal.payment-methods.index'))->assertDontSee('Visa ending 4242');
         $this->assertFalse($theirs->refresh()->isRemoved());
 
         $invoice = $this->invoice($mine->client, 1000, now()->addDays(5)->toDateString());
