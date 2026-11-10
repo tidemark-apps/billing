@@ -7,16 +7,17 @@ use App\Exceptions\PlanLimitReached;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * The plan of a hosted install: a JSON file written by the host (BILLING_PLAN_FILE), for example
- * {"name": "starter", "limits": {"clients": 100, "staff": 2}, "suspended": false}. A missing file, or a limit that is absent or null, means no limit,
- * so self-hosted installs are never affected. Limits stop new clients and staff users; existing ones keep working
+ * {"name": "starter", "limits": {"clients": 100, "staff": 2, "emails_per_day": 200}, "suspended": false}. A missing file, or a limit that is absent or null, means no limit,
+ * so self-hosted installs are never affected. Limits stop new clients and staff users, and outgoing email once a day's allowance (`emails_per_day`, UTC) is used up; existing ones keep working
  * (for example after a downgrade), and the host can see the overage in `php artisan billing:usage`.
  */
 class Plan
 {
-    public const LIMITS = ['clients', 'staff'];
+    public const LIMITS = ['clients', 'staff', 'emails_per_day'];
 
     /** @return array{name: ?string, limits: array<string, ?int>, suspended: bool, suspended_message: ?string} */
     public static function current(): array
@@ -54,7 +55,26 @@ class Plan
         return match ($key) {
             'clients' => Client::query()->count(),
             'staff' => User::query()->whereIn('role', [Role::Admin, Role::Staff])->where('is_active', true)->count(),
+            'emails_per_day' => (int) Cache::get(self::emailKey(), 0),
         };
+    }
+
+    private static function emailKey(): string
+    {
+        return 'plan-emails:'.now()->utc()->format('Y-m-d');
+    }
+
+    /** Count one outgoing email against today's allowance (UTC day). False when the plan's daily limit is used up. */
+    public static function allowEmail(): bool
+    {
+        $limit = self::limit('emails_per_day');
+        if ($limit !== null && self::usage('emails_per_day') >= $limit) {
+            return false;
+        }
+        Cache::add(self::emailKey(), 0, now()->addDays(2));
+        Cache::increment(self::emailKey());
+
+        return true;
     }
 
     /** @throws PlanLimitReached */
@@ -71,7 +91,7 @@ class Plan
     public static function report(): array
     {
         $plan = self::current();
-        $usage = ['clients' => self::usage('clients'), 'staff' => self::usage('staff')];
+        $usage = ['clients' => self::usage('clients'), 'staff' => self::usage('staff'), 'emails_per_day' => self::usage('emails_per_day')];
 
         return [
             'plan' => $plan['name'],

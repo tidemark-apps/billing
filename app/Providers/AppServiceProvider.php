@@ -8,14 +8,18 @@ use App\Listeners\AutoPayInvoice;
 use App\Listeners\FulfillPaidInvoice;
 use App\Listeners\QueueWebhooks;
 use App\Services\Knowledgebase\Knowledgebase;
+use App\Support\Plan;
 use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Symfony\Component\Mime\Address;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -48,6 +52,28 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api-auth', fn (Request $r) => Limit::perMinute(10)->by($r->ip()));
 
         $this->applyMailSettings();
+        $this->hostedMail();
+    }
+
+    /** Hosted installs send through the host's shared relay: replies go to the owner, and the plan's daily allowance applies. */
+    private function hostedMail(): void
+    {
+        Event::listen(MessageSending::class, function (MessageSending $event) {
+            if (! config('billing.hosted')) {
+                return null;
+            }
+            $message = $event->message;
+            if (! $message->getReplyTo() && ($reply = Settings::get('company.email'))) {
+                $message->replyTo(new Address($reply, (string) Settings::get('company.name', config('billing.name'))));
+            }
+            if (! Plan::allowEmail()) {
+                Log::warning('Email not sent: the plan\'s daily email allowance is used up.', ['subject' => $message->getSubject()]);
+
+                return false;
+            }
+
+            return null;
+        });
     }
 
     /** Let admins configure outgoing email in Settings → Email instead of editing .env on shared hosting. */

@@ -25,7 +25,7 @@ class PlanLimitsTest extends TestCase
         Client::factory()->count(3)->create();
 
         $this->assertNull(Plan::limit('clients'));
-        $this->assertSame(['clients' => null, 'staff' => null], Plan::current()['limits']);
+        $this->assertSame(['clients' => null, 'staff' => null, 'emails_per_day' => null], Plan::current()['limits']);
     }
 
     public function test_a_client_over_the_limit_is_refused(): void
