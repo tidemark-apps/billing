@@ -45,7 +45,7 @@ class TrialsAndPlanChangesTest extends TestCase
         $this->actingAs($user)->get(route('portal.order.create', ['product' => $product->slug, 'cycle' => 'monthly']))->assertOk()->assertSee('14-day free trial')->assertSee('Start free trial');
         $res = $this->post(route('portal.order.store'), ['product' => $product->slug, 'cycle' => 'monthly']);
         $service = $user->client->services()->firstOrFail();
-        $res->assertRedirect(route('portal.services.show', $service))->assertSessionHas('status', 'Your trial has started.');
+        $res->assertRedirect(route('portal.services.show', $service))->assertSessionHas('order_placed.trial', true);
         $this->assertSame(0, $user->client->invoices()->count());
         $this->get(route('portal.services.show', $service))->assertOk()->assertSee('Free trial until')->assertSee('cancel any time', false);
         $this->get(route('portal.services.index'))->assertSee('Trial');

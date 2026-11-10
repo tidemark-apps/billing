@@ -12,6 +12,6 @@
         <tr><td colspan="3"><b>Estimated usage charge</b></td><td class="right"><b>{{ money($summary->total(), $service->currency) }}</b></td></tr>
         </tbody></table>
     @endif
-    <p class="muted small" style="margin-top:8px">Usage is billed after the period ends, together with your renewal invoice. Estimate excludes tax.</p>
+    <p class="muted small mt-8">Usage is billed after the period ends, together with your renewal invoice. Estimate excludes tax.</p>
 </x-card>
 @endif

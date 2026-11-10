@@ -28,8 +28,12 @@ class QuoteController extends Controller
             'status' => ['nullable', Rule::enum(QuoteStatus::class)],
             'client_id' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:100'],
+            'view' => ['nullable', Rule::enum(QuoteStatus::class)],
         ]);
+        $view = $filters['view'] ?? 'all';
+        unset($filters['view']);
         $query = Quote::with('client')
+            ->when($view !== 'all', fn ($q) => $q->where('status', $view))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['client_id'] ?? null, fn ($q, $v) => $q->where('client_id', $v))
             ->when($filters['q'] ?? null, function ($q, $term) {
@@ -40,6 +44,10 @@ class QuoteController extends Controller
         return view('admin.quotes.index', [
             'quotes' => $query->latest('id')->paginate(25)->withQueryString(),
             'filters' => $filters,
+            'view' => $view,
+            'counts' => ['all' => Quote::count()] + Quote::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')->map(fn ($n) => (int) $n)->all()
+                + collect(QuoteStatus::cases())->mapWithKeys(fn ($c) => [$c->value => 0])->all(),
+            'awaiting' => Quote::external()->where('status', QuoteStatus::Sent->value)->selectRaw('currency, sum(total) as due')->groupBy('currency')->pluck('due', 'currency'),
             'clients' => Client::orderBy('name')->get(['id', 'name', 'company_name']),
         ]);
     }
@@ -205,7 +213,7 @@ class QuoteController extends Controller
             'valid_until' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'terms' => ['nullable', 'string', 'max:5000'],
-        ] + $this->itemRules());
+        ] + $this->itemRules(), $this->formMessages());
     }
 
     /** @return array<string, mixed> */

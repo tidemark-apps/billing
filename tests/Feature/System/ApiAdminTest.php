@@ -76,4 +76,15 @@ class ApiAdminTest extends TestCase
         $this->actingAs($staff)->post('/admin/api/tokens', ['name' => 'x', 'scope' => 'full'])->assertForbidden();
         $this->actingAs($staff)->post('/admin/api/webhooks', ['url' => 'https://x.test'])->assertForbidden();
     }
+
+    public function test_token_list_shows_expiry_and_scopes_and_webhooks_show_last_delivery(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/admin/api/tokens', ['name' => 'Scoped', 'scope' => 'custom', 'abilities' => ['clients.read', 'invoices.write']]);
+        ApiToken::issue($admin, 'Old one', null, now()->subDay());
+        $endpoint = WebhookEndpoint::create(['url' => 'https://example.test/hook', 'secret' => 'whsec_x', 'events' => ['*'], 'is_active' => true]);
+        $endpoint->deliveries()->create(['event' => 'ping', 'payload' => [], 'success' => false, 'status_code' => 500, 'attempts' => 1]);
+
+        $this->actingAs($admin)->get('/admin/api')->assertOk()->assertSee('Clients (read)')->assertSee('Invoices (write)')->assertSee('Expired')->assertSee('Last delivery')->assertSee('500');
+    }
 }

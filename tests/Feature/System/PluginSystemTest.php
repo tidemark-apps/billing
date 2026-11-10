@@ -115,4 +115,12 @@ class PluginSystemTest extends TestCase
 
         $this->actingAs($staff)->post('/admin/plugins/demo/enable')->assertForbidden();
     }
+
+    public function test_plugin_list_has_state_tabs_with_counts(): void
+    {
+        $admin = $this->admin();
+        $page = $this->actingAs($admin)->get('/admin/plugins')->assertOk()->assertSee('Enabled')->assertSee('Disabled')->assertSee('Updates pending');
+        $this->assertStringContainsString('tab-count', $page->getContent());
+        $this->actingAs($admin)->get('/admin/plugins?view=updates')->assertOk()->assertSee('No plugins in this view');
+    }
 }

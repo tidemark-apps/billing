@@ -38,7 +38,7 @@ class PortalTest extends TestCase
 
         $this->get('/store')->assertOk()->assertSee('Visible Plan')->assertSee('Hosting')->assertDontSee('Hidden Plan')->assertDontSee('Off Plan');
         $this->get(route('store.show', $hidden))->assertNotFound();
-        $this->get(route('store.show', Product::where('name', 'Visible Plan')->first()))->assertOk()->assertSee('Order now');
+        $this->get(route('store.show', Product::where('name', 'Visible Plan')->first()))->assertOk()->assertSee('Continue to review');
     }
 
     public function test_guest_order_redirects_to_login(): void

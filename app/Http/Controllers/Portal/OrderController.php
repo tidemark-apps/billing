@@ -28,6 +28,8 @@ class OrderController extends PortalController
             'product' => $product, 'cycle' => $cycle, 'price' => $price, 'rate' => $rate,
             'trialAvailable' => $price->cycle->isRecurring() && $product->trialAvailableTo($client),
             'label' => $request->query('label'), 'tax' => $taxAmount, 'total' => $net + $taxAmount,
+            'savedMethod' => PaymentMethod::where('client_id', $client->id)->orderByDesc('is_default')->first(),
+            'termsUrl' => config('billing.legal.terms'),
         ]);
     }
 
@@ -50,10 +52,10 @@ class OrderController extends PortalController
             return redirect()->route('portal.store')->with('error', $e->getMessage());
         }
         if ($result['invoice'] === null) {
-            return redirect()->route('portal.services.show', $result['service'])->with('status', 'Your trial has started.');
+            return redirect()->route('portal.services.show', $result['service'])->with('order_placed', ['product' => $product->name, 'trial' => true, 'trial_ends' => $result['service']->trial_ends_at?->format('j M Y')]);
         }
 
-        return redirect()->route('portal.invoices.show', $result['invoice'])->with('status', 'Order placed. Pay the invoice to activate your service.');
+        return redirect()->route('portal.invoices.show', $result['invoice'])->with('order_placed', ['product' => $product->name, 'trial' => false, 'service' => $result['service']->id]);
     }
 
     /** @return array{0: Product, 1: BillingCycle, 2: ?ProductPrice} */

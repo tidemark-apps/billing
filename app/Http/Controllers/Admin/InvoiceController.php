@@ -34,9 +34,17 @@ class InvoiceController extends Controller
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
             'overdue' => ['nullable', 'boolean'],
+            'view' => ['nullable', Rule::in(['open', 'overdue', 'paid', 'draft', 'closed'])],
         ]);
+        $view = $filters['view'] ?? 'all';
+        unset($filters['view']);
 
         $query = Invoice::with('client')
+            ->when($view === 'open', fn ($q) => $q->where('status', InvoiceStatus::Open->value))
+            ->when($view === 'overdue', fn ($q) => $q->overdue())
+            ->when($view === 'paid', fn ($q) => $q->where('status', InvoiceStatus::Paid->value))
+            ->when($view === 'draft', fn ($q) => $q->where('status', InvoiceStatus::Draft->value))
+            ->when($view === 'closed', fn ($q) => $q->whereIn('status', [InvoiceStatus::Void->value, InvoiceStatus::Uncollectible->value]))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['client_id'] ?? null, fn ($q, $v) => $q->where('client_id', $v))
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('issue_date', '>=', $v))
@@ -52,6 +60,15 @@ class InvoiceController extends Controller
         return view('admin.invoices.index', [
             'invoices' => $query->latest('id')->paginate(25)->withQueryString(),
             'filters' => $filters,
+            'view' => $view,
+            'counts' => [
+                'all' => Invoice::count(),
+                'open' => Invoice::where('status', InvoiceStatus::Open->value)->count(),
+                'overdue' => Invoice::overdue()->count(),
+                'paid' => Invoice::where('status', InvoiceStatus::Paid->value)->count(),
+                'draft' => Invoice::where('status', InvoiceStatus::Draft->value)->count(),
+                'closed' => Invoice::whereIn('status', [InvoiceStatus::Void->value, InvoiceStatus::Uncollectible->value])->count(),
+            ],
             'clients' => Client::orderBy('name')->get(['id', 'name', 'company_name']),
             'outstanding' => $due(Invoice::where('status', InvoiceStatus::Open->value)),
             'overdue' => $due(Invoice::overdue()),
@@ -207,13 +224,18 @@ class InvoiceController extends Controller
             'amount' => ['required', 'numeric', 'gt:0'],
             'method' => ['required', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:500'],
+        ], [
+            'amount.required' => 'Enter the amount you received.',
+            'amount.numeric' => 'Enter the amount as a number, such as 120.00.',
+            'amount.gt' => 'The amount must be more than zero.',
+            'method.required' => 'Say how it was paid, for example bank transfer.',
         ]);
         $amount = Money::toMinor($data['amount'], $invoice->currency);
         if (! in_array($invoice->status, [InvoiceStatus::Open, InvoiceStatus::Uncollectible], true)) {
             return back()->with('error', 'This invoice cannot accept payments.');
         }
         if ($amount > $invoice->balance()) {
-            return back()->withInput()->with('error', 'The payment is more than the balance due ('.money($invoice->balance(), $invoice->currency).').');
+            return back()->withInput()->withErrors(['amount' => 'That is more than the balance due. Enter '.money($invoice->balance(), $invoice->currency).' or less.']);
         }
         try {
             $payment = $this->payments->recordManual($invoice, $amount, $data['method'], $data['notes'] ?? null);
@@ -244,7 +266,7 @@ class InvoiceController extends Controller
             'reference' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'terms' => ['nullable', 'string', 'max:5000'],
-        ] + $this->itemRules());
+        ] + $this->itemRules(), $this->formMessages());
     }
 
     /** @return array<string, mixed> */

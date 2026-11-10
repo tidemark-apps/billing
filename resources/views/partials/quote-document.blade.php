@@ -15,7 +15,7 @@
         <div class="muted small">Prepared for</div>
         <b>{{ $quote->client->displayName() }}</b>
         @foreach ($quote->client->addressLines() as $line)<div class="muted small">{{ $line }}</div>@endforeach
-        @if ($quote->title)<div style="margin-top:12px"><b>{{ $quote->title }}</b></div>@endif
+        @if ($quote->title)<div class="mt-12"><b>{{ $quote->title }}</b></div>@endif
     </div>
     <div class="tscroll">
         <table class="t doc-items">
@@ -32,8 +32,8 @@
     </div>
     @if ($quote->notes || $quote->terms)
         <footer class="doc-foot">
-            @if ($quote->notes)<div><b>Notes</b><p class="muted small" style="white-space:pre-line">{{ $quote->notes }}</p></div>@endif
-            @if ($quote->terms)<div><b>Terms</b><p class="muted small" style="white-space:pre-line">{{ $quote->terms }}</p></div>@endif
+            @if ($quote->notes)<div><b>Notes</b><p class="muted small pre-line">{{ $quote->notes }}</p></div>@endif
+            @if ($quote->terms)<div><b>Terms</b><p class="muted small pre-line">{{ $quote->terms }}</p></div>@endif
         </footer>
     @endif
 </article>

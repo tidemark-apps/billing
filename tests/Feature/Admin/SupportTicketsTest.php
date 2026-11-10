@@ -135,6 +135,32 @@ class SupportTicketsTest extends TestCase
         $me->get(route('admin.tickets.index', ['priority' => 'urgent']))->assertSee('Beta question')->assertDontSee('Alpha question');
     }
 
+    public function test_list_sorts_by_priority_and_flags_tickets_waiting_on_staff(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->ticket($this->sales, ['subject' => 'Low one', 'priority' => 'low']);
+        $this->ticket($this->sales, ['subject' => 'Urgent one', 'priority' => 'urgent']);
+        $answered = $this->ticket($this->sales, ['subject' => 'Answered one']);
+        $answered->update(['status' => TicketStatus::Answered]);
+
+        $this->actingAs($admin)->get(route('admin.tickets.index', ['sort' => 'priority', 'dir' => 'desc']))
+            ->assertSeeInOrder(['Urgent one', 'Low one'])
+            ->assertSee('Urgent priority')
+            ->assertSee('Needs a reply', false);
+        $this->actingAs($admin)->get(route('admin.tickets.index', ['sort' => 'priority', 'dir' => 'asc']))->assertSeeInOrder(['Low one', 'Urgent one']);
+        $this->actingAs($admin)->get(route('admin.tickets.index', ['sort' => 'bogus']))->assertOk();
+    }
+
+    public function test_detail_puts_thread_before_composer_and_metadata_in_the_sidebar(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $ticket = $this->ticket();
+
+        $this->actingAs($admin)->get(route('admin.tickets.show', $ticket))->assertOk()
+            ->assertSeeInOrder(['aria-label="Conversation"', 'id="composer"', 'aria-label="Ticket details"'], false)
+            ->assertSee('Reply to customer')->assertSee('Internal note')->assertSee('More');
+    }
+
     public function test_reply_sends_mail_and_sets_status_and_notes_do_not(): void
     {
         Mail::fake();
@@ -154,7 +180,7 @@ class SupportTicketsTest extends TestCase
         $this->assertTrue($ticket->messages()->where('kind', 'note')->where('body', 'Secret thought')->exists());
         Mail::assertNothingSent();
         Mail::assertNothingQueued();
-        $this->actingAs($staff)->get(route('admin.tickets.show', $ticket))->assertSee('INTERNAL NOTE')->assertSee('Secret thought');
+        $this->actingAs($staff)->get(route('admin.tickets.show', $ticket))->assertSee('Internal note, staff only')->assertSee('Secret thought');
         $this->assertFalse($ticket->publicMessages()->where('body', 'Secret thought')->exists());
     }
 

@@ -4,7 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductGroup;
+use App\Models\ProductPrice;
+use App\Services\TaxService;
 use App\Support\Settings;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /** The product catalogue: public at /store, and inside the client area at /portal/store. */
 class StoreController extends Controller
@@ -19,7 +23,7 @@ class StoreController extends Controller
         return view('store.portal', $this->catalogue());
     }
 
-    public function show(Product $product)
+    public function show(Request $request, Product $product, TaxService $tax)
     {
         abort_unless($product->is_active && $product->is_visible, 404);
         $product->load('prices');
@@ -29,16 +33,64 @@ class StoreController extends Controller
             $currency = $this->defaultCurrency();
             $prices = $product->pricesIn($currency);
         }
-        abort_if($prices->isEmpty(), 404);
+        if ($prices->isEmpty()) {
+            return response()->view('store.unavailable', ['product' => $product], 404);
+        }
 
-        return view('store.show', ['product' => $product, 'prices' => $prices, 'currency' => $currency]);
+        $client = auth()->user()?->client;
+        $rate = $client && ! $product->tax_exempt ? $tax->rateFor($client) : null;
+        $trialUsed = $client !== null && $product->offersTrial() && ! $product->trialAvailableTo($client);
+        $trial = $product->offersTrial() && ! $trialUsed;
+        $selected = $prices->first(fn ($p) => $p->cycle->value === $request->query('cycle')) ?? $prices->first();
+        $savings = self::savings($prices);
+        $due = $prices->mapWithKeys(fn ($p) => [$p->cycle->value => self::dueToday($p, $rate, $trial && $p->cycle->isRecurring())]);
+
+        return view('store.show', [
+            'product' => $product, 'prices' => $prices, 'currency' => $currency, 'selected' => $selected, 'label' => (string) $request->query('label', ''),
+            'savings' => $savings, 'due' => $due, 'trial' => $trial, 'trialUsed' => $trialUsed, 'rate' => $rate, 'known' => $client !== null,
+            'metered' => $product->meters()->exists(),
+        ]);
+    }
+
+    /**
+     * Percent saved by paying a longer cycle up front versus repeating the shortest recurring cycle. Only cycles that are cheaper appear.
+     *
+     * @param  Collection<int, ProductPrice>  $prices
+     * @return array<string, int> cycle value => whole percent
+     */
+    public static function savings($prices): array
+    {
+        $recurring = $prices->filter(fn ($p) => $p->cycle->isRecurring())->sortBy(fn ($p) => $p->cycle->months())->values();
+        $base = $recurring->first();
+        $out = [];
+        if (! $base || $base->amount <= 0) {
+            return $out;
+        }
+        foreach ($recurring->skip(1) as $p) {
+            $repeat = $base->amount * $p->cycle->months() / $base->cycle->months();
+            $pct = (int) round(($repeat - $p->amount) / $repeat * 100);
+            if ($pct > 0) {
+                $out[$p->cycle->value] = $pct;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array{setup: int, tax: int, total: int, today: int} amounts in minor units; "today" is zero for a free trial */
+    public static function dueToday($price, $rate, bool $trial): array
+    {
+        $net = $price->amount + $price->setup_fee;
+        $tax = $rate ? (int) round($net * $rate->rate / 100) : 0;
+
+        return ['setup' => (int) $price->setup_fee, 'tax' => $tax, 'total' => $net + $tax, 'today' => $trial ? 0 : $net + $tax];
     }
 
     /** @return array<string, mixed> */
     private function catalogue(): array
     {
         $currency = $this->currency();
-        $products = Product::with('prices')->where('is_active', true)->where('is_visible', true)->orderBy('sort')->orderBy('name')->get()
+        $products = Product::with('prices')->withCount('meters')->where('is_active', true)->where('is_visible', true)->orderBy('sort')->orderBy('name')->get()
             ->map(function (Product $p) use ($currency) {
                 $prices = $p->pricesIn($currency);
                 $cur = $currency;
@@ -46,7 +98,9 @@ class StoreController extends Controller
                     $cur = $this->defaultCurrency();
                     $prices = $p->pricesIn($cur);
                 }
-                $p->setAttribute('from_price', $prices->sortBy('amount')->first());
+                $p->setAttribute('from_price', $prices->first());
+                $p->setAttribute('savings', self::savings($prices));
+                $p->setAttribute('best_saving', collect(self::savings($prices))->max());
                 $p->setAttribute('from_currency', $cur);
 
                 return $p;

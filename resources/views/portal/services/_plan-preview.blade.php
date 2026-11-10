@@ -14,10 +14,10 @@
     @endif
 </dl>
 @if ($preview['timing'] === 'renewal')
-    <p class="help" style="margin-top:8px">The change is scheduled, nothing is charged now{{ $preview['direction'] === 'downgrade' ? ', and you keep your current plan until then. Downgrades apply at the next renewal' : '' }}. The new price applies from the renewal invoice.</p>
+    <p class="help mt-8">The change is scheduled, nothing is charged now{{ $preview['direction'] === 'downgrade' ? ', and you keep your current plan until then. Downgrades apply at the next renewal' : '' }}. The new price applies from the renewal invoice.</p>
 @elseif ($preview['trial'])
-    <p class="help" style="margin-top:8px">Nothing has been paid yet, so there is nothing to prorate. The trial carries on with the new plan.</p>
+    <p class="help mt-8">Nothing has been paid yet, so there is nothing to prorate. The trial carries on with the new plan.</p>
 @endif
 @if ($preview['forfeited'] > 0)
-    <div class="notice warn" style="margin-top:12px"><x-icon name="info" :size="16" /><div>The credit ({{ money($preview['credit'], $cur) }}) is larger than the new charge. The unused {{ money($preview['forfeited'], $cur) }} is not refunded or carried forward.</div></div>
+    <div class="notice warn mt-12"><x-icon name="info" :size="16" /><div>The credit ({{ money($preview['credit'], $cur) }}) is larger than the new charge. The unused {{ money($preview['forfeited'], $cur) }} is not refunded or carried forward.</div></div>
 @endif

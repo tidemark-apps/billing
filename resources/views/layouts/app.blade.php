@@ -23,7 +23,7 @@
                 @elseif ($area === 'admin')<x-logo :size="26" /><span class="brand-name" style="margin-left:10px">Billing</span>
                 @else<x-logo :size="24" /><span class="brand-name" style="margin-left:10px">{{ $company }}</span>@endif
             </a>
-            <div class="crumbs"><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-cur">{{ trim($__env->yieldContent('title')) ?: ($area === 'admin' ? 'Admin' : 'Client area') }}</span></div>
+            <div class="crumbs"><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-cur">{!! trim($__env->yieldContent('title')) ?: e($area === 'admin' ? 'Admin' : 'Client area') !!}</span></div>
             <div class="tb-right">
                 @if ($user->isStaff() && $area === 'portal')<a class="btn sm" href="{{ route('admin.dashboard') }}">Admin</a>@endif
                 @if (session('impersonator_id'))<form method="POST" action="{{ route('admin.impersonate.stop') }}">@csrf<button class="btn sm" type="submit">Stop viewing as client</button></form>@endif

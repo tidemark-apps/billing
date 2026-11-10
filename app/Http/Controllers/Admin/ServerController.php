@@ -17,10 +17,20 @@ class ServerController extends Controller
 {
     public function __construct(private readonly ModuleRegistry $modules) {}
 
-    public function index()
+    public function index(Request $request)
     {
+        $request->validate(['view' => ['nullable', Rule::in(['active', 'disabled'])]]);
+        $view = (string) $request->input('view', 'all');
+        $all = Server::withCount(['services as live_count' => fn ($q) => $q->whereIn('status', ['active', 'suspended', 'pending'])])->orderBy('name')->get();
+
         return view('admin.servers.index', [
-            'servers' => Server::withCount(['services as live_count' => fn ($q) => $q->whereIn('status', ['active', 'suspended', 'pending'])])->orderBy('name')->get(),
+            'servers' => match ($view) {
+                'active' => $all->where('is_active', true)->values(),
+                'disabled' => $all->where('is_active', false)->values(),
+                default => $all,
+            },
+            'view' => $view,
+            'counts' => ['all' => $all->count(), 'active' => $all->where('is_active', true)->count(), 'disabled' => $all->where('is_active', false)->count()],
             'modules' => $this->modules->options(),
         ]);
     }

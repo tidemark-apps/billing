@@ -25,6 +25,28 @@ trait HandlesLineItems
         ];
     }
 
+    /** Fix-it messages shown inline next to the offending field. @return array<string, string> */
+    protected function formMessages(): array
+    {
+        return [
+            'client_id.required' => 'Choose a client.',
+            'client_id.exists' => 'That client no longer exists. Choose another.',
+            'currency.required' => 'Choose a currency.',
+            'issue_date.date' => 'Enter a valid date, for example 2026-03-31.',
+            'due_date.date' => 'Enter a valid date, for example 2026-03-31.',
+            'valid_until.date' => 'Enter a valid date, for example 2026-03-31.',
+            'items.required' => 'Add at least one line item.',
+            'items.min' => 'Add at least one line item.',
+            'items.*.description.required' => 'Describe this line.',
+            'items.*.description.max' => 'Keep the description under 255 characters.',
+            'items.*.unit_price.required' => 'Enter a unit price (0 is allowed).',
+            'items.*.unit_price.numeric' => 'Enter the price as a number, such as 12.50.',
+            'items.*.unit_price.min' => 'The price cannot be negative.',
+            'items.*.quantity.numeric' => 'Enter the quantity as a number.',
+            'items.*.quantity.min' => 'The quantity cannot be negative.',
+        ];
+    }
+
     /**
      * Form input (major units) to service input (minor units).
      *

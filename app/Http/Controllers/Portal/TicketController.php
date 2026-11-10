@@ -18,14 +18,20 @@ class TicketController extends PortalController
 {
     public function __construct(private readonly TicketService $tickets, private readonly TicketAttachments $attachments) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        $tickets = Ticket::where('client_id', $this->client()->id)->with('department')
-            ->orderByRaw("CASE WHEN status = 'closed' THEN 1 ELSE 0 END")
+        $base = Ticket::where('client_id', $this->client()->id);
+        $counts = [
+            'open' => (clone $base)->where('status', '!=', 'closed')->count(),
+            'closed' => (clone $base)->where('status', 'closed')->count(),
+        ];
+        $view = $request->query('view') === 'closed' ? 'closed' : 'open';
+        $tickets = (clone $base)->with('department')
+            ->when($view === 'closed', fn ($q) => $q->where('status', 'closed'), fn ($q) => $q->where('status', '!=', 'closed'))
             ->orderByDesc('last_reply_at')->orderByDesc('id')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
-        return view('portal.tickets.index', ['tickets' => $tickets]);
+        return view('portal.tickets.index', ['tickets' => $tickets, 'view' => $view, 'counts' => $counts]);
     }
 
     public function create(Request $request)

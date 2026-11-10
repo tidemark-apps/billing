@@ -8,9 +8,19 @@ use Illuminate\Http\Request;
 
 class QuoteController extends PortalController
 {
-    public function index()
+    public function index(Request $request)
     {
-        return view('portal.quotes.index', ['quotes' => $this->client()->quotes()->where('status', '!=', 'draft')->latest('id')->paginate(20)]);
+        $base = $this->client()->quotes()->where('status', '!=', 'draft');
+        $by = (clone $base)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $groups = ['open' => ['sent'], 'accepted' => ['accepted', 'converted'], 'closed' => ['declined', 'expired']];
+        $counts = ['' => (int) $by->sum()];
+        foreach ($groups as $k => $statuses) {
+            $counts[$k] = (int) collect($statuses)->sum(fn ($s) => $by[$s] ?? 0);
+        }
+        $status = (string) $request->query('status');
+        $quotes = (clone $base)->when(isset($groups[$status]), fn ($q) => $q->whereIn('status', $groups[$status]))->latest('id')->paginate(20)->withQueryString();
+
+        return view('portal.quotes.index', ['quotes' => $quotes, 'status' => $status, 'counts' => $counts]);
     }
 
     public function show(string $quote)

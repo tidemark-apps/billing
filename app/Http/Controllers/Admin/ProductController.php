@@ -24,10 +24,35 @@ class ProductController extends Controller
 {
     public function __construct(private readonly ModuleRegistry $modules) {}
 
-    public function index()
+    public function index(Request $request)
     {
+        $request->validate(['view' => ['nullable', Rule::in(['active', 'inactive', 'hidden'])], 'sort' => ['nullable', Rule::in(['product', 'group', 'live', 'status'])], 'dir' => ['nullable', Rule::in(['asc', 'desc'])]]);
+        $view = (string) $request->input('view', 'all');
+        $sort = $request->filled('sort') ? (string) $request->input('sort') : null;
+        $dir = $request->input('dir') === 'desc' ? 'desc' : 'asc';
+
+        $all = Product::with(['group', 'prices'])->withCount(['services as live_count' => fn ($q) => $q->whereIn('status', ['active', 'suspended'])])->orderBy('sort')->orderBy('name')->get();
+        $products = match ($view) {
+            'active' => $all->where('is_active', true),
+            'inactive' => $all->where('is_active', false),
+            'hidden' => $all->where('is_visible', false),
+            default => $all,
+        };
+        if ($sort) {
+            $products = $products->sortBy(fn ($p) => match ($sort) {
+                'group' => strtolower($p->group?->name ?? '~'),
+                'live' => $p->live_count,
+                'status' => (int) $p->is_active,
+                default => strtolower($p->name),
+            }, SORT_REGULAR, $dir === 'desc');
+        }
+
         return view('admin.products.index', [
-            'products' => Product::with(['group', 'prices'])->withCount(['services as live_count' => fn ($q) => $q->whereIn('status', ['active', 'suspended'])])->orderBy('sort')->orderBy('name')->get(),
+            'products' => $products->values(),
+            'view' => $view,
+            'sort' => $sort,
+            'dir' => $dir,
+            'counts' => ['all' => $all->count(), 'active' => $all->where('is_active', true)->count(), 'inactive' => $all->where('is_active', false)->count(), 'hidden' => $all->where('is_visible', false)->count()],
             'groups' => ProductGroup::withCount('products')->orderBy('sort')->orderBy('name')->get(),
             'modules' => $this->modules->options(),
         ]);

@@ -23,9 +23,14 @@ class ApiController extends Controller
 
     public function index(Request $request)
     {
+        $webhooks = WebhookEndpoint::withCount('deliveries')->latest()->get();
+        foreach ($webhooks as $w) {
+            $w->setRelation('lastDelivery', $w->deliveries()->latest('id')->first());
+        }
+
         return view('admin.api.index', [
             'tokens' => $request->user()->apiTokens()->latest()->get(),
-            'webhooks' => WebhookEndpoint::withCount('deliveries')->latest()->get(),
+            'webhooks' => $webhooks,
             'events' => DomainEvent::catalog(),
             'abilityCatalog' => Abilities::STAFF,
             'newToken' => session('new_token'),
@@ -76,7 +81,9 @@ class ApiController extends Controller
 
     public function showWebhook(WebhookEndpoint $webhook)
     {
-        return view('admin.api.webhook', ['webhook' => $webhook, 'deliveries' => $webhook->deliveries()->limit(50)->get(), 'events' => DomainEvent::catalog()]);
+        $deliveries = $webhook->deliveries()->latest('id')->limit(50)->get();
+
+        return view('admin.api.webhook', ['webhook' => $webhook, 'deliveries' => $deliveries, 'events' => DomainEvent::catalog(), 'failures' => $deliveries->where('success', false)->count()]);
     }
 
     public function updateWebhook(Request $request, WebhookEndpoint $webhook): RedirectResponse

@@ -36,4 +36,21 @@ class PaymentsTest extends TestCase
         $this->get(route('admin.payments.index', ['type' => 'refund']))->assertOk()->assertSee('Refund');
         $this->assertNotNull($stripe);
     }
+
+    public function test_view_tabs_filter_payments_and_refunds_with_counts(): void
+    {
+        $this->actingAs($this->admin());
+        $client = Client::factory()->create();
+        $product = Product::factory()->priced(2000)->create();
+        ['invoice' => $a] = app(OrderService::class)->place($client, $product, BillingCycle::Monthly);
+        ['invoice' => $b] = app(OrderService::class)->place($client, $product, BillingCycle::Monthly);
+        app(PaymentService::class)->record($a, 'stripe', 2000, 'ch_keep');
+        $manual = app(PaymentService::class)->recordManual($b, 2000, 'cash');
+        app(PaymentService::class)->refund($manual, 500);
+
+        $this->get(route('admin.payments.index'))->assertOk()->assertSee('Payment views');
+        $this->get(route('admin.payments.index', ['view' => 'refunds']))->assertOk()->assertDontSee('ch_keep')->assertSee('Refund');
+        $this->get(route('admin.payments.index', ['view' => 'payments']))->assertOk()->assertSee('ch_keep');
+        $this->get(route('admin.payments.index', ['view' => 'nope']))->assertSessionHasErrors('view');
+    }
 }

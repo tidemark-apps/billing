@@ -36,10 +36,10 @@ class DemoSeeder extends Seeder
         $hosting = ProductGroup::create(['name' => 'Web hosting', 'slug' => 'web-hosting', 'description' => 'Fast, reliable hosting for sites of every size.']);
         $extras = ProductGroup::create(['name' => 'Add-ons', 'slug' => 'add-ons', 'sort' => 2]);
         $products = [
-            ['Starter hosting', 'starter-hosting', $hosting, 'Perfect for a personal site: 10 GB SSD, free SSL, daily backups.', 500, 0],
-            ['Business hosting', 'business-hosting', $hosting, '50 GB SSD, 5 sites, staging, priority support.', 1200, 0],
-            ['Agency hosting', 'agency-hosting', $hosting, '200 GB SSD, unlimited sites, white-label client access.', 3500, 1500],
-            ['Premium SSL certificate', 'premium-ssl', $extras, 'Organisation-validated certificate with warranty.', 4900, 0],
+            ['Starter hosting', 'starter-hosting', $hosting, "10 GB SSD storage\n1 website\nFree SSL certificate\nDaily backups\nEmail support", 500, 0],
+            ['Business hosting', 'business-hosting', $hosting, "50 GB SSD storage\nUp to 5 websites\nStaging environment\nFree SSL and daily backups\nPriority support", 1200, 0],
+            ['Agency hosting', 'agency-hosting', $hosting, "200 GB SSD storage\nUnlimited websites\nWhite-label client access\nStaging and daily backups\nPriority support with a 1 hour response", 3500, 1500],
+            ['Premium SSL certificate', 'premium-ssl', $extras, "Organisation-validated certificate\nCovers your main domain and www\nWarranty included\nReissue any time", 4900, 0],
         ];
         $made = [];
         foreach ($products as [$name, $slug, $group, $desc, $price, $setup]) {
@@ -50,7 +50,7 @@ class DemoSeeder extends Seeder
         }
 
         // A metered example: small base fee, API calls with a free allowance and graduated tiers, bandwidth per GB.
-        $cloud = Product::create(['name' => 'Cloud API (metered)', 'slug' => 'cloud-api', 'product_group_id' => $extras->id, 'description' => 'Pay for what you use: 10,000 API calls included, graduated pricing after that, plus bandwidth per GB.', 'label_prompt' => 'Project name', 'is_active' => true, 'is_visible' => true]);
+        $cloud = Product::create(['name' => 'Cloud API (metered)', 'slug' => 'cloud-api', 'product_group_id' => $extras->id, 'description' => "10,000 API calls included each month\nGraduated pricing after that\n50 GB bandwidth included, then per GB\nUsage shown live in your client area", 'label_prompt' => 'Project name', 'is_active' => true, 'is_visible' => true]);
         $cloud->prices()->create(['cycle' => BillingCycle::Monthly, 'currency' => 'USD', 'amount' => 500, 'setup_fee' => 0]);
         $calls = $cloud->meters()->create(['key' => 'api_calls', 'name' => 'API calls', 'unit' => 'calls', 'aggregation' => 'sum', 'included_quantity' => 10000, 'pricing_model' => 'tiered', 'sort' => 0]);
         // prices are micro-minor units (1/1,000,000 of a cent): 200,000 = 0.2 cent = $0.002 per call

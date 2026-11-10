@@ -184,7 +184,7 @@ class SupportSetupTest extends TestCase
         $b = Department::create(['name' => 'Technical', 'slug' => 'technical']);
         $user = User::factory()->staff()->create();
 
-        $this->actingAs($admin)->get(route('admin.staff.edit', $user))->assertOk()->assertSee('Staff in no department only see tickets assigned directly to them', false);
+        $this->actingAs($admin)->get(route('admin.staff.edit', $user))->assertOk()->assertSee('Staff see tickets in their departments and any assigned to them', false);
         $this->actingAs($admin)->put(route('admin.staff.update', $user), ['name' => $user->name, 'email' => $user->email, 'role' => 'staff', 'departments' => [$a->id, $b->id]])->assertSessionHasNoErrors();
         $this->assertEqualsCanonicalizing([$a->id, $b->id], $user->departments()->pluck('ticket_departments.id')->all());
         $this->actingAs($admin)->get(route('admin.staff.index'))->assertSee('Sales, Technical');

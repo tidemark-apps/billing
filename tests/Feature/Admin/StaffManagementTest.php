@@ -221,4 +221,26 @@ class StaffManagementTest extends TestCase
         $this->get(route('admin.dashboard'))->assertRedirect(route('login'));
         $this->assertGuest();
     }
+
+    public function test_staff_list_has_status_tabs_with_counts_and_search(): void
+    {
+        $admin = $this->admin();
+        User::factory()->staff()->create(['name' => 'Ina Inactive', 'is_active' => false]);
+        User::factory()->staff()->create(['name' => 'Sam Searchable']);
+
+        $page = $this->actingAs($admin)->get(route('admin.staff.index'))->assertOk()->assertSee('Administrators')->assertSee('No 2FA');
+        $this->assertStringContainsString('tab-count', $page->getContent());
+        $this->actingAs($admin)->get(route('admin.staff.index', ['view' => 'inactive']))->assertSee('Ina Inactive')->assertDontSee('Sam Searchable');
+        $this->actingAs($admin)->get(route('admin.staff.index', ['q' => 'searchable']))->assertSee('Sam Searchable')->assertDontSee('Ina Inactive');
+        $this->actingAs($admin)->get(route('admin.staff.index', ['q' => 'zzzz']))->assertSee('No one matches that search');
+    }
+
+    public function test_edit_page_explains_roles_and_shows_last_sign_in(): void
+    {
+        $admin = $this->admin();
+        $user = User::factory()->staff()->create(['last_login_at' => now()->subDays(2)]);
+
+        $this->actingAs($admin)->get(route('admin.staff.edit', $user))->assertOk()
+            ->assertSee('Cannot change settings, plugins, API tokens or other staff')->assertSee('2 days ago')->assertSee('Deactivate account')->assertSee('Sign-in security');
+    }
 }

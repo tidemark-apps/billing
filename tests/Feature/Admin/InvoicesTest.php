@@ -116,7 +116,7 @@ class InvoicesTest extends TestCase
         $product = Product::factory()->priced(2000)->module('fake')->create();
         ['service' => $service, 'invoice' => $invoice] = app(OrderService::class)->place($client, $product, BillingCycle::Monthly);
 
-        $this->post(route('admin.invoices.payments.store', $invoice), ['amount' => '9999', 'method' => 'Cash'])->assertSessionHas('error');
+        $this->post(route('admin.invoices.payments.store', $invoice), ['amount' => '9999', 'method' => 'Cash'])->assertSessionHasErrors('amount');
         $this->post(route('admin.invoices.payments.store', $invoice), ['amount' => '20.00', 'method' => 'Bank transfer'])->assertSessionHas('status');
 
         $this->assertSame(InvoiceStatus::Paid, $invoice->refresh()->status);
@@ -145,5 +145,27 @@ class InvoicesTest extends TestCase
         $unpaid = Invoice::latest('id')->first();
         $this->post(route('admin.invoices.void', $unpaid))->assertSessionHas('status');
         $this->assertSame(InvoiceStatus::Void, $unpaid->refresh()->status);
+    }
+
+    public function test_overpaying_shows_an_inline_error_on_the_amount_field(): void
+    {
+        $this->actingAs($this->admin());
+        $client = Client::factory()->create();
+        $this->post(route('admin.invoices.store'), $this->payload($client, 'issue'));
+        $invoice = Invoice::firstOrFail();
+
+        $this->from(route('admin.invoices.show', $invoice))->post(route('admin.invoices.payments.store', $invoice), ['amount' => '99999', 'method' => 'Cash'])
+            ->assertSessionHasErrors('amount');
+        $this->get(route('admin.invoices.show', $invoice))->assertOk()->assertSee('Record payment')->assertSee('Activity');
+    }
+
+    public function test_missing_line_description_gets_a_fix_it_message(): void
+    {
+        $this->actingAs($this->admin());
+        $client = Client::factory()->create();
+        $payload = $this->payload($client);
+        $payload['items'][0]['description'] = '';
+
+        $this->post(route('admin.invoices.store'), $payload)->assertSessionHasErrors(['items.0.description' => 'Describe this line.']);
     }
 }

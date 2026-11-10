@@ -76,4 +76,13 @@ class ProductsTest extends TestCase
         $this->delete(route('admin.product-groups.destroy', $g))->assertRedirect();
         $this->assertModelMissing($g);
     }
+
+    public function test_index_tabs_filter_by_active_state(): void
+    {
+        Product::factory()->create(['name' => 'Live Plan', 'is_active' => true]);
+        Product::factory()->create(['name' => 'Retired Plan', 'is_active' => false]);
+        $this->actingAs($this->admin());
+        $this->get(route('admin.products.index', ['view' => 'inactive']))->assertOk()->assertSee('Retired Plan')->assertDontSee('Live Plan')->assertSee('Live services');
+        $this->get(route('admin.products.index', ['view' => 'active']))->assertSee('Live Plan')->assertDontSee('Retired Plan');
+    }
 }

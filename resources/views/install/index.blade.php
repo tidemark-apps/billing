@@ -12,7 +12,7 @@
     <div class="grid2" data-reveal-group="db" data-reveal-for="mysql">
         <x-field name="db_host" label="Host" value="127.0.0.1" /><x-field name="db_port" label="Port" value="3306" />
         <x-field name="db_database" label="Database name" /><x-field name="db_username" label="Username" />
-        <x-field name="db_password" label="Password" type="password" class="span2" />
+        <x-field name="db_password" label="Password (optional)" type="password" class="span2" autocomplete="off" />
     </div>
     <p class="help" data-reveal-group="db" data-reveal-for="sqlite">SQLite stores everything in <code>database/database.sqlite</code>. Fine for most small businesses; pick MySQL for heavier use.</p>
     <hr>
@@ -23,14 +23,14 @@
     </div>
     <h2>Administrator</h2>
     <div class="grid2">
-        <x-field name="name" label="Your name" required /><x-field name="email" label="Email" type="email" required />
-        <x-field name="password" label="Password" type="password" required autocomplete="new-password" /><x-field name="password_confirmation" label="Confirm password" type="password" required autocomplete="new-password" />
+        <x-field name="name" label="Your name" required autocomplete="name" /><x-field name="email" label="Email" type="email" required autocomplete="email" />
+        <x-portal-password name="password" label="Password" autocomplete="new-password" help="At least 8 characters." /><x-portal-password name="password_confirmation" label="Confirm password" autocomplete="new-password" />
     </div>
     @if ($plugins)
         <hr><h2>Plugins</h2><p class="help">Switch on what you need now; you can change this any time under Plugins.</p>
         <div class="stack sm">@foreach ($plugins as $slug => $m)<x-field :name="'plugins['.$slug.']'" :label="$m['name'] ?? $slug" type="checkbox" :help="$m['description'] ?? null" />@endforeach</div>
     @endif
-    <button class="btn primary" type="submit">Install</button>
+    <button class="btn primary" type="submit">Install Tidemark Billing</button>
 </form>
 @endif
 @endsection

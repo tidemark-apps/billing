@@ -139,6 +139,75 @@
     sel.addEventListener('change', apply); apply();
   });
 
+  // ---- forms: inline validation, dirty tracking and secret fields (shared by every area) -------------------------
+  // <form data-validate> validates on blur and submit and fills #form-summary; <form data-dirty-form> + [data-savebar]
+  // tracks unsaved changes and warns on leave; [data-secret] wraps a "Set / Replace / Keep current" secret input.
+  (function () {
+    var n = 0;
+    function holder(el) { return el.closest('label') && !el.closest('.line-row') ? el.closest('label') : (el.closest('.lf') || el.parentElement); }
+    function clear(el) { var h = holder(el), e = h.querySelector('.field-error.js'); if (e) e.remove(); el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby'); }
+    function show(el) {
+      clear(el);
+      var m = el.dataset.msg || (el.tagName === 'SELECT' ? 'Choose an option.' : (el.validity.valueMissing ? 'This field is required.' : el.validationMessage));
+      var s = document.createElement('span'); s.className = 'field-error js'; s.id = 'fe-' + (++n); s.textContent = m;
+      holder(el).appendChild(s); el.setAttribute('aria-invalid', 'true'); el.setAttribute('aria-describedby', s.id);
+    }
+    $$('form[data-validate]').forEach(function (f) {
+      f.noValidate = true;
+      $$('[aria-required="true"]', f).forEach(function (e) { e.required = true; });
+      var src = f.querySelector('[data-sum="total"]'), out = f.querySelector('[data-bar-total]');
+      if (src && out) { var sync = function () { out.textContent = src.textContent; }; new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true }); sync(); }
+      f.addEventListener('focusout', function (e) { var el = e.target; if (!el.willValidate || el.type === 'hidden') return; if (el.dataset.touched || el.hasAttribute('aria-invalid')) { el.checkValidity() ? clear(el) : show(el); } });
+      f.addEventListener('input', function (e) { var el = e.target; el.dataset.touched = '1'; if (el.hasAttribute('aria-invalid') && el.checkValidity()) clear(el); });
+      f.addEventListener('change', function (e) { var el = e.target; if (el.hasAttribute('aria-invalid') && el.checkValidity()) clear(el); });
+      f.addEventListener('submit', function (e) {
+        var bad = Array.prototype.filter.call(f.querySelectorAll('input,select,textarea'), function (el) { return el.willValidate && !el.checkValidity(); });
+        if (!bad.length) return;
+        e.preventDefault(); bad.forEach(show);
+        var box = document.getElementById('form-summary');
+        if (box) { box.hidden = false; var c = box.querySelector('[data-count]'); if (c) c.textContent = bad.length + (bad.length === 1 ? ' field needs' : ' fields need'); }
+        bad[0].focus();
+      });
+    });
+    $$('[data-secret]').forEach(function (w) {
+      var state = w.querySelector('[data-secret-state]'), box = w.querySelector('[data-secret-input]'); if (!state || !box) return;
+      var input = box.querySelector('input');
+      w.querySelector('[data-secret-replace]').addEventListener('click', function () { state.classList.add('hidden'); box.classList.remove('hidden'); input.disabled = false; input.focus(); input.dispatchEvent(new Event('input', { bubbles: true })); });
+      w.querySelector('[data-secret-cancel]').addEventListener('click', function () { input.value = ''; input.disabled = true; box.classList.add('hidden'); state.classList.remove('hidden'); state.querySelector('button').focus(); input.dispatchEvent(new Event('input', { bubbles: true })); });
+    });
+    $$('[data-dirty-form]').forEach(function (form) {
+      var bar = document.querySelector('[data-savebar]'); if (!bar) return;
+      var text = bar.querySelector('[data-savebar-text]'), discard = bar.querySelector('[data-savebar-discard]'), saving = false;
+      function snap() { var o = []; new FormData(form).forEach(function (v, k) { if (typeof v === 'string') o.push(k + '=' + v); }); return o.join('&'); }
+      var base = snap();
+      function sync() { var d = snap() !== base; bar.classList.toggle('dirty', d); if (text) text.textContent = d ? 'Unsaved changes' : 'No unsaved changes'; if (discard) discard.hidden = !d; return d; }
+      form.addEventListener('input', sync); form.addEventListener('change', sync);
+      form.addEventListener('submit', function () { saving = true; });
+      if (discard) discard.addEventListener('click', function () { form.reset(); $$('[data-secret-cancel]', form).forEach(function (b) { if (!b.closest('[data-secret-input]').classList.contains('hidden')) b.click(); }); sync(); });
+      window.addEventListener('beforeunload', function (e) { if (!saving && sync()) { e.preventDefault(); e.returnValue = ''; } });
+      var first = document.querySelector('.has-error input, .has-error select, .has-error textarea'); if (first) first.focus();
+    });
+  })();
+
+  // ---- small shared behaviours ---------------------------------------------------------------------------------
+  // <select data-autosubmit> submits its form on change; <a data-focus="#id"> focuses that field after the jump;
+  // [data-composer] holds a Reply / Internal note toggle ([data-mode] tabs, #panel-<mode> panels) and sends on Ctrl/Cmd+Enter.
+  $$('[data-autosubmit]').forEach(function (s) { s.addEventListener('change', function () { if (s.form) s.form.requestSubmit(); }); });
+  $$('[data-focus]').forEach(function (a) { a.addEventListener('click', function () { var t = document.querySelector(a.dataset.focus); if (t) setTimeout(function () { t.focus(); }, 50); }); });
+  $$('[data-composer]').forEach(function (box) {
+    function setMode(mode) {
+      box.classList.toggle('is-note', mode === 'note');
+      $$('[data-mode]', box).forEach(function (t) { var on = t.dataset.mode === mode; t.setAttribute('aria-selected', on ? 'true' : 'false'); t.classList.toggle('on', on); });
+      $$('.panel', box).forEach(function (p) { p.hidden = p.id !== 'panel-' + mode; });
+    }
+    $$('[data-mode]', box).forEach(function (t) {
+      t.addEventListener('click', function () { setMode(t.dataset.mode); var ta = box.querySelector('#panel-' + t.dataset.mode + ' textarea'); if (ta) ta.focus(); });
+    });
+    box.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && e.target.tagName === 'TEXTAREA') { e.preventDefault(); e.target.form.requestSubmit(); }
+    });
+  });
+
   // ---- submit buttons show a spinner and block double submits ----------------------------------------------------
   document.addEventListener('submit', function (e) {
     var f = e.target; if (e.defaultPrevented || f.hasAttribute('data-no-lock')) return;

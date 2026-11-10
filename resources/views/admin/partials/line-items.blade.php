@@ -5,7 +5,7 @@
 @php($quote = $quote ?? false)
 <div>
     <div class="row wrap spread" style="margin-bottom:12px">
-        <b>Line items</b>
+        <div><b>Line items</b><div class="help">Amounts in {{ $currency }}. Total updates as you type.</div></div>
         @if ($catalog)
             <select id="catalog-picker" style="width:auto;min-width:240px" aria-label="Add from catalogue">
                 <option value="">Add from catalogue…</option>
@@ -16,19 +16,20 @@
         @endif
     </div>
     <div data-repeater data-next="{{ count($rows) }}" data-min="1" data-digits="{{ $digitsMap[$currency] ?? 2 }}" data-tax-rate="{{ $taxRate }}">
-        <div class="line-row head"><span>Description</span><span>Qty</span><span>Unit price</span><span>Tax</span><span class="right">Amount</span><span></span></div>
+        <div class="line-row head" aria-hidden="true"><span>Description</span><span>Qty</span><span>Unit price (<span data-cur-label>{{ $currency }}</span>)</span><span>Taxable</span><span class="right">Amount</span><span></span></div>
         <div data-rows>
             @foreach ($rows as $i => $row)
                 @include('admin.partials.line-row', ['i' => $i, 'row' => $row, 'quote' => $quote])
             @endforeach
         </div>
         <template>@include('admin.partials.line-row', ['i' => '__INDEX__', 'row' => ['quantity' => 1, 'taxable' => true], 'quote' => $quote])</template>
+        @error('items')<p class="field-error" role="alert">{{ $message }}</p>@enderror
         <button type="button" class="btn sm" data-add><x-icon name="plus" :size="14" /> Add line</button>
     </div>
     <div class="sum-box">
         <div><span>Subtotal</span><span data-sum="subtotal">0.00</span></div>
         <div><span data-tax-label>{{ $taxName ?: 'Tax' }}</span><span data-sum="tax">0.00</span></div>
-        <div class="total"><span>Total</span><span data-sum="total">0.00</span></div>
+        <div class="total"><span>Total (<span data-cur-label>{{ $currency }}</span>)</span><span data-sum="total">0.00</span></div>
     </div>
 </div>
 @push('scripts')
@@ -40,6 +41,7 @@
   function refresh() { rep.dispatchEvent(new Event('change', { bubbles: true })); }
   function syncCurrency() {
     rep.dataset.digits = digits[cur.value] !== undefined ? digits[cur.value] : 2;
+    document.querySelectorAll('[data-cur-label]').forEach(function (e) { e.textContent = cur.value; });
     if (picker) Array.prototype.forEach.call(picker.options, function (o) { if (o.value !== '') o.hidden = o.dataset.currency !== cur.value; });
     refresh();
   }

@@ -52,4 +52,12 @@ class ServersTest extends TestCase
         $this->get(route('admin.servers.index'))->assertOk();
         $this->post(route('admin.servers.store'), ['module' => 'nope', 'name' => 'x', 'hostname' => 'h.example.com'])->assertSessionHasErrors('module');
     }
+
+    public function test_index_tabs_filter_active_and_disabled(): void
+    {
+        Server::create(['module' => 'fakeserver', 'name' => 'srv-on', 'hostname' => 'on.example.com', 'is_active' => true]);
+        Server::create(['module' => 'fakeserver', 'name' => 'srv-off', 'hostname' => 'off.example.com', 'is_active' => false]);
+        $this->actingAs($this->admin());
+        $this->get(route('admin.servers.index', ['view' => 'disabled']))->assertOk()->assertSee('srv-off')->assertDontSee('srv-on');
+    }
 }

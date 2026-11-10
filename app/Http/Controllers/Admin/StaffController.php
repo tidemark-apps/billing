@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\User;
 use App\Services\StaffAccounts;
 use App\Support\Activity;
+use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -24,10 +25,26 @@ class StaffController extends Controller
 
     public function index(Request $request)
     {
-        $users = User::whereIn('role', [Role::Admin, Role::Staff])->orderByDesc('is_active')->orderBy('name')->with('departments')->get();
-        $lastAdmin = $users->first(fn (User $u) => $this->staff->isLastActiveAdmin($u));
+        $all = User::whereIn('role', [Role::Admin, Role::Staff])->orderByDesc('is_active')->orderBy('name')->with('departments')->get();
+        $lastAdmin = $all->first(fn (User $u) => $this->staff->isLastActiveAdmin($u));
+        $counts = [
+            'all' => $all->count(),
+            'active' => $all->where('is_active', true)->count(),
+            'inactive' => $all->where('is_active', false)->count(),
+            'admins' => $all->filter(fn (User $u) => $u->isAdmin())->count(),
+            'no2fa' => $all->filter(fn (User $u) => $u->is_active && ! $u->hasTwoFactor())->count(),
+        ];
+        $view = in_array($request->query('view'), ['active', 'inactive', 'admins', 'no2fa'], true) ? $request->query('view') : 'all';
+        $q = trim((string) $request->query('q', ''));
+        $users = $all->filter(fn (User $u) => match ($view) {
+            'active' => $u->is_active,
+            'inactive' => ! $u->is_active,
+            'admins' => $u->isAdmin(),
+            'no2fa' => $u->is_active && ! $u->hasTwoFactor(),
+            default => true,
+        })->when($q !== '', fn ($c) => $c->filter(fn (User $u) => str_contains(mb_strtolower($u->name.' '.$u->email), mb_strtolower($q))))->values();
 
-        return view('admin.staff.index', ['users' => $users, 'lastAdminId' => $lastAdmin?->id]);
+        return view('admin.staff.index', ['users' => $users, 'lastAdminId' => $lastAdmin?->id, 'counts' => $counts, 'view' => $view, 'q' => $q, 'twoFactorRequired' => (bool) Settings::bool('security.require_staff_2fa')]);
     }
 
     public function create()

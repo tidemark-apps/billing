@@ -28,7 +28,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class TicketController extends Controller
 {
-    public const TABS = ['mine' => 'My tickets', 'unassigned' => 'Unassigned', 'open' => 'All open', 'awaiting' => 'Awaiting staff', 'closed' => 'Closed'];
+    public const TABS = ['open' => 'All open', 'mine' => 'My tickets', 'unassigned' => 'Unassigned', 'awaiting' => 'Needs reply', 'closed' => 'Closed'];
+
+    /** Sortable columns: sort key => SQL order expression (direction is appended). */
+    public const SORTS = [
+        'ticket' => 'id',
+        'priority' => "CASE priority WHEN 'urgent' THEN 4 WHEN 'high' THEN 3 WHEN 'normal' THEN 2 ELSE 1 END",
+        'activity' => 'COALESCE(last_reply_at, created_at)',
+    ];
 
     public function __construct(private readonly TicketService $tickets, private readonly TicketAttachments $files) {}
 
@@ -49,6 +56,10 @@ class TicketController extends Controller
             $counts[$key] = $this->tab(clone $base, $key, $user)->count();
         }
 
+        $sort = array_key_exists($request->query('sort'), self::SORTS) ? $request->query('sort') : 'activity';
+        $dir = in_array($request->query('dir'), ['asc', 'desc'], true) ? $request->query('dir')
+            : ($sort === 'activity' && $tab === 'awaiting' ? 'asc' : 'desc'); // longest-waiting first where it matters
+
         $query = $this->tab(clone $base, $tab, $user)->with(['department', 'assignee', 'client']);
         if (isset($filters['q'])) {
             $term = $filters['q'];
@@ -66,7 +77,9 @@ class TicketController extends Controller
         }
 
         return view('admin.tickets.index', [
-            'tickets' => $query->orderByDesc('last_reply_at')->orderByDesc('id')->paginate(25)->withQueryString(),
+            'tickets' => $query->orderByRaw(self::SORTS[$sort].' '.$dir)->orderByDesc('id')->paginate(25)->withQueryString(),
+            'sort' => $sort,
+            'dir' => $dir,
             'tab' => $tab,
             'tabs' => self::TABS,
             'counts' => $counts,

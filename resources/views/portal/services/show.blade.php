@@ -1,8 +1,15 @@
 @extends('layouts.app', ['area' => 'portal'])
 @section('title', $service->title())
 @section('content')
-<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif
+<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services">
     @if (\App\Services\TicketService::enabled())<a class="btn" href="{{ route('portal.tickets.create', ['service' => $service->uuid]) }}"><x-icon name="life-buoy" :size="15" /> Get help</a>@endif</x-page-head>
+<x-order-placed />
+<section class="card sumhead" aria-label="Service summary">
+    <div class="sh-item"><span class="sh-k">Status</span><span class="sh-v"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif</span><span class="sh-c">{{ $service->cancel_at_period_end ? 'Cancels at end of period' : ($service->activated_at ? 'Active since '.$service->activated_at->format('j M Y') : '') }}</span></div>
+    <div class="sh-item"><span class="sh-k">Next due</span><span class="sh-v">{{ $service->next_due_date?->format('j M Y') ?? '—' }}</span><span class="sh-c">{{ $service->next_due_date ? $service->next_due_date->diffForHumans() : '' }}</span></div>
+    <div class="sh-item"><span class="sh-k">Price</span><span class="sh-v big">{{ money($service->amount, $service->currency) }}</span><span class="sh-c">{{ $service->billing_cycle->suffix() }}</span></div>
+    <div class="sh-item"><span class="sh-k">Billing cycle</span><span class="sh-v">{{ $service->billing_cycle->label() }}</span><span class="sh-c">{{ $service->currency }}</span></div>
+</section>
 @if ($service->cancel_at_period_end)<div class="notice warn"><x-icon name="triangle-alert" :size="16" /><div>This service is set to cancel on {{ $service->next_due_date?->format('j M Y') }}.</div></div>@endif
 @if ($service->onTrial())
 <div class="notice"><x-icon name="info" :size="16" /><div><b>Free trial until {{ $service->trial_ends_at->format('j M Y') }}.</b> After that it is {{ money($service->amount, $service->currency) }} {{ $service->billing_cycle->suffix() }}. You can cancel any time before then and you will not be charged.</div></div>
@@ -13,16 +20,13 @@
 @endif
 @if (session('revealed'))
 <x-card title="Your credentials"><p class="muted small">Shown once. Store them somewhere safe.</p>
-    @foreach (session('revealed') as $k => $v)<div class="stack sm" style="margin-top:8px"><span class="muted small">{{ ucfirst(str_replace('_', ' ', $k)) }}</span><div class="secret-box"><span class="grow">{{ is_scalar($v) ? $v : json_encode($v) }}</span><button class="btn sm" type="button" data-copy="{{ is_scalar($v) ? $v : json_encode($v) }}">Copy</button></div></div>@endforeach
+    @foreach (session('revealed') as $k => $v)<div class="stack sm mt-8"><span class="muted small">{{ ucfirst(str_replace('_', ' ', $k)) }}</span><div class="secret-box"><span class="grow">{{ is_scalar($v) ? $v : json_encode($v) }}</span><button class="btn sm" type="button" data-copy="{{ is_scalar($v) ? $v : json_encode($v) }}">Copy</button></div></div>@endforeach
 </x-card>
 @endif
 <x-card title="Details">
     <dl class="kv wide">
         <dt>Product</dt><dd>{{ $service->product?->name ?? '—' }}</dd>
         @if ($service->label)<dt>Reference</dt><dd>{{ $service->label }}</dd>@endif
-        <dt>Price</dt><dd>{{ money($service->amount, $service->currency) }} {{ $service->billing_cycle->suffix() }}</dd>
-        <dt>Billing cycle</dt><dd>{{ $service->billing_cycle->label() }}</dd>
-        <dt>Next due</dt><dd>{{ $service->next_due_date?->format('j M Y') ?? '—' }}</dd>
         @if ($service->activated_at)<dt>Active since</dt><dd>{{ $service->activated_at->format('j M Y') }}</dd>@endif
         @foreach (($service->provision ?? []) as $k => $v)@if (is_scalar($v))<dt>{{ ucfirst(str_replace('_', ' ', $k)) }}</dt><dd>{{ $v }}</dd>@endif @endforeach
     </dl>
@@ -38,9 +42,9 @@
 @if ($canChangePlan && ($preview || $planOptions->isNotEmpty()))
 <x-card title="Change plan">
     @if ($preview)
-        <p class="muted small" style="margin-bottom:12px">Here is what changes. Nothing happens until you confirm.</p>
+        <p class="muted small mb-16">Here is what changes. Nothing happens until you confirm.</p>
         @include('portal.services._plan-preview', ['preview' => $preview, 'staff' => false])
-        <form method="POST" action="{{ route('portal.services.plan-change.store', $service) }}" class="row" style="margin-top:16px">@csrf
+        <form method="POST" action="{{ route('portal.services.plan-change.store', $service) }}" class="row mt-16">@csrf
             <input type="hidden" name="plan" value="{{ $selected['plan'] }}">
             <button class="btn primary" type="submit">Confirm change</button><a class="btn" href="{{ route('portal.services.show', $service) }}">Back</a>
         </form>

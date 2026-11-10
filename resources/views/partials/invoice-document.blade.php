@@ -4,10 +4,10 @@
         @include('partials.company-block')
         <div class="doc-meta">
             <h2>Invoice {{ $invoice->displayNumber() }}</h2>
-            <x-status :status="$invoice->status" />
+            <x-portal-invoice-status :invoice="$invoice" />
             <dl class="kv">
                 @if ($invoice->issue_date)<dt>Issued</dt><dd>{{ $invoice->issue_date->format('j M Y') }}</dd>@endif
-                @if ($invoice->due_date)<dt>Due</dt><dd>{{ $invoice->due_date->format('j M Y') }}@if($invoice->isOverdue()) <span class="pill bad">Overdue</span>@endif</dd>@endif
+                @if ($invoice->due_date)<dt>Due</dt><dd>{{ $invoice->due_date->format('j M Y') }}</dd>@endif
                 @if ($invoice->reference)<dt>Reference</dt><dd>{{ $invoice->reference }}</dd>@endif
             </dl>
         </div>
@@ -34,8 +34,8 @@
     </div>
     @if ($invoice->notes || $invoice->terms)
         <footer class="doc-foot">
-            @if ($invoice->notes)<div><b>Notes</b><p class="muted small" style="white-space:pre-line">{{ $invoice->notes }}</p></div>@endif
-            @if ($invoice->terms)<div><b>Terms</b><p class="muted small" style="white-space:pre-line">{{ $invoice->terms }}</p></div>@endif
+            @if ($invoice->notes)<div><b>Notes</b><p class="muted small pre-line">{{ $invoice->notes }}</p></div>@endif
+            @if ($invoice->terms)<div><b>Terms</b><p class="muted small pre-line">{{ $invoice->terms }}</p></div>@endif
         </footer>
     @endif
 </article>

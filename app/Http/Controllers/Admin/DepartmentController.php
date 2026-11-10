@@ -77,7 +77,8 @@ class DepartmentController extends Controller
             $result = ['ok' => false, 'message' => $e->getMessage()];
         }
 
-        return redirect()->route('admin.departments.edit', $department)->with($result['ok'] ? 'status' : 'error', ($result['ok'] ? 'Connection works: ' : 'Connection failed: ').$result['message'].($result['ok'] ? '' : ' (signed in as "'.$probe->imap_username.'" to '.$probe->imap_host.':'.$probe->imap_port.' using '.($probe->imap_encryption === 'none' ? 'no encryption' : $probe->imap_encryption).($probe->imap_password === null || $probe->imap_password === '' ? ', with NO password' : '').')'));
+        return redirect()->route('admin.departments.edit', $department)->with($result['ok'] ? 'status' : 'error', ($result['ok'] ? 'Connection works: ' : 'Connection failed: ').$result['message'].($result['ok'] ? '' : ' (signed in as "'.$probe->imap_username.'" to '.$probe->imap_host.':'.$probe->imap_port.' using '.($probe->imap_encryption === 'none' ? 'no encryption' : $probe->imap_encryption).($probe->imap_password === null || $probe->imap_password === '' ? ', with NO password' : '').')'))
+            ->withInput($request->except('imap_password', '_token'));
     }
 
     public function destroy(Department $department): RedirectResponse

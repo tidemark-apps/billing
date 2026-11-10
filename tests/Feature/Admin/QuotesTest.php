@@ -110,4 +110,19 @@ class QuotesTest extends TestCase
         $this->assertNull(Quote::find($draft->id));
         $this->get(route('admin.quotes.index'))->assertOk();
     }
+
+    public function test_status_tabs_filter_the_list_and_show_counts(): void
+    {
+        $this->actingAs($this->admin());
+        $client = Client::factory()->create();
+        $product = Product::factory()->create();
+        $this->post(route('admin.quotes.store'), $this->payload($client, $product, 'draft'));
+        $this->post(route('admin.quotes.store'), $this->payload($client, $product, 'send'));
+
+        $this->get(route('admin.quotes.index'))->assertOk()->assertSee('Quote views');
+        $sent = Quote::where('status', QuoteStatus::Sent->value)->first();
+        $draft = Quote::where('status', QuoteStatus::Draft->value)->first();
+        $this->get(route('admin.quotes.index', ['view' => 'sent']))->assertOk()->assertSee($sent->number)->assertDontSee($draft->number);
+        $this->get(route('admin.quotes.index', ['view' => 'bogus']))->assertSessionHasErrors('view');
+    }
 }

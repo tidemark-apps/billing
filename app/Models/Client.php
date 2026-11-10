@@ -61,6 +61,14 @@ class Client extends Model
         return $this->company_name ?: $this->name;
     }
 
+    /** "Portland, OR 97201": city, then region and postcode. */
+    public function cityLine(): string
+    {
+        $region = trim(implode(' ', array_filter([$this->state, $this->postcode])));
+
+        return implode(', ', array_filter([$this->city, $region]));
+    }
+
     /** @return array<int, string> */
     public function addressLines(): array
     {
@@ -68,8 +76,7 @@ class Client extends Model
             $this->company_name ? $this->name : null,
             $this->address_1,
             $this->address_2,
-            trim(implode(' ', array_filter([$this->postcode, $this->city]))),
-            $this->state,
+            $this->cityLine(),
             $this->country ? (Countries::name($this->country)) : null,
         ]));
     }

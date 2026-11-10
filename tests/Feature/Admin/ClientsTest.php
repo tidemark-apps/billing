@@ -95,4 +95,30 @@ class ClientsTest extends TestCase
         $this->actingAs($customer)->withSession(['impersonator_id' => $admin->id])->post(route('admin.impersonate.stop'))->assertRedirect(route('admin.dashboard'));
         $this->assertSame($admin->id, auth()->id());
     }
+
+    public function test_index_has_status_tabs_with_counts_and_filters_and_sorts(): void
+    {
+        Client::factory()->create(['name' => 'Alpha Active', 'company_name' => null, 'status' => 'active']);
+        Client::factory()->create(['name' => 'Beta Inactive', 'company_name' => null, 'status' => 'inactive']);
+        Client::factory()->create(['name' => 'Gamma Internal', 'company_name' => null, 'status' => 'active', 'is_internal' => true]);
+        $this->actingAs($this->admin());
+        $this->get(route('admin.clients.index'))->assertOk()->assertSee('Client views')->assertSee('Alpha Active')->assertSee('Beta Inactive');
+        $this->get(route('admin.clients.index', ['view' => 'inactive']))->assertOk()->assertSee('Beta Inactive')->assertDontSee('Alpha Active');
+        $this->get(route('admin.clients.index', ['view' => 'internal']))->assertOk()->assertSee('Gamma Internal')->assertDontSee('Alpha Active');
+        $this->get(route('admin.clients.index', ['sort' => 'client', 'dir' => 'asc']))->assertOk()->assertSeeInOrder(['Alpha Active', 'Beta Inactive', 'Gamma Internal']);
+        $this->get(route('admin.clients.index', ['view' => 'bogus']))->assertSessionHasErrors('view');
+    }
+
+    public function test_address_lines_put_city_before_region_and_postcode(): void
+    {
+        $c = Client::factory()->make(['address_1' => '1 Main St', 'address_2' => null, 'city' => 'Portland', 'state' => 'OR', 'postcode' => '97201', 'country' => 'US']);
+        $this->assertContains('Portland, OR 97201', $c->addressLines());
+        $this->assertSame('London, SW1A 1AA', Client::factory()->make(['city' => 'London', 'state' => null, 'postcode' => 'SW1A 1AA'])->cityLine());
+    }
+
+    public function test_show_has_summary_and_danger_zone(): void
+    {
+        $client = Client::factory()->create();
+        $this->actingAs($this->admin())->get(route('admin.clients.show', $client))->assertOk()->assertSee('Lifetime paid')->assertSee('Open balance')->assertSee('Danger zone');
+    }
 }

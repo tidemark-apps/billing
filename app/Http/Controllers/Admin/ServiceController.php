@@ -26,22 +26,66 @@ class ServiceController extends Controller
 {
     public function __construct(private readonly ProvisioningService $provisioning, private readonly PlanChangeService $planChanges) {}
 
+    private const SORTS = ['service', 'client', 'status', 'cycle', 'price', 'due'];
+
+    /** Active-and-on-trial services: shown as "Trial", not "Active". */
+    private function trialing($q)
+    {
+        return $q->where('status', ServiceStatus::Active->value)->whereNotNull('trial_ends_at')->whereNull('trial_converted_at');
+    }
+
     public function index(Request $request)
     {
+        $request->validate([
+            'view' => ['nullable', Rule::in(['pending', 'active', 'suspended', 'trial', 'cancelled'])],
+            'sort' => ['nullable', Rule::in(self::SORTS)],
+            'dir' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+        $view = (string) $request->input('view', 'all');
+        $sort = $request->filled('sort') ? (string) $request->input('sort') : 'id';
+        $dir = $request->filled('sort') && $request->input('dir') === 'asc' ? 'asc' : 'desc';
+
         $services = Service::with(['client', 'product'])
+            ->when($view === 'pending', fn ($q) => $q->where('status', ServiceStatus::Pending->value))
+            ->when($view === 'active', fn ($q) => $q->where('status', ServiceStatus::Active->value)->where(fn ($w) => $w->whereNull('trial_ends_at')->orWhereNotNull('trial_converted_at')))
+            ->when($view === 'suspended', fn ($q) => $q->where('status', ServiceStatus::Suspended->value))
+            ->when($view === 'trial', fn ($q) => $this->trialing($q))
+            ->when($view === 'cancelled', fn ($q) => $q->whereIn('status', [ServiceStatus::Cancelled->value, ServiceStatus::Terminated->value]))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('product'), fn ($q) => $q->where('product_id', $request->integer('product')))
             ->when($request->filled('client'), fn ($q) => $q->where('client_id', $request->integer('client')))
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = (string) $request->string('q');
                 $q->where(fn ($w) => $w->whereContains('label', $term)->orWhereHas('client', fn ($c) => $c->whereContains('name', $term)->orWhereContains('company_name', $term)->orWhereContains('email', $term)));
-            })
-            ->latest('id')->paginate(25)->withQueryString();
+            });
+
+        match ($sort) {
+            'service' => $services->orderByRaw("lower(coalesce(label, '')) {$dir}"),
+            'client' => $services->orderBy(Client::select('name')->whereColumn('clients.id', 'services.client_id'), $dir),
+            'status' => $services->orderBy('status', $dir),
+            'cycle' => $services->orderBy('billing_cycle', $dir),
+            'price' => $services->orderBy('amount', $dir),
+            'due' => $services->orderByRaw("next_due_date is null, next_due_date {$dir}"),
+            default => null,
+        };
+
+        $by = Service::query()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $trial = $this->trialing(Service::query())->count();
 
         return view('admin.services.index', [
-            'services' => $services,
+            'services' => $services->orderBy('id', 'desc')->paginate(25)->withQueryString(),
             'products' => Product::orderBy('name')->pluck('name', 'id'),
-            'statuses' => collect(ServiceStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->label()])->all(),
+            'view' => $view,
+            'sort' => $sort,
+            'dir' => $dir,
+            'counts' => [
+                'all' => (int) $by->sum(),
+                'pending' => (int) ($by['pending'] ?? 0),
+                'active' => (int) ($by['active'] ?? 0) - $trial,
+                'suspended' => (int) ($by['suspended'] ?? 0),
+                'trial' => $trial,
+                'cancelled' => (int) ($by['cancelled'] ?? 0) + (int) ($by['terminated'] ?? 0),
+            ],
         ]);
     }
 

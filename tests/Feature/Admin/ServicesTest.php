@@ -113,4 +113,29 @@ class ServicesTest extends TestCase
         $this->actingAs($admin)->get(route('admin.quotes.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
     }
+
+    public function test_index_status_tabs_count_trials_separately(): void
+    {
+        $client = Client::factory()->create();
+        $product = Product::factory()->priced(1000)->create();
+        Service::create(['client_id' => $client->id, 'product_id' => $product->id, 'billing_cycle' => 'monthly', 'amount' => 1000, 'currency' => 'USD', 'status' => ServiceStatus::Pending, 'label' => 'pend.test']);
+        Service::create(['client_id' => $client->id, 'product_id' => $product->id, 'billing_cycle' => 'monthly', 'amount' => 1000, 'currency' => 'USD', 'status' => ServiceStatus::Active, 'label' => 'live.test']);
+        Service::create(['client_id' => $client->id, 'product_id' => $product->id, 'billing_cycle' => 'monthly', 'amount' => 1000, 'currency' => 'USD', 'status' => ServiceStatus::Active, 'label' => 'trial.test', 'trial_ends_at' => now()->addDays(5)]);
+        Service::create(['client_id' => $client->id, 'product_id' => $product->id, 'billing_cycle' => 'monthly', 'amount' => 1000, 'currency' => 'USD', 'status' => ServiceStatus::Terminated, 'label' => 'gone.test']);
+        $this->actingAs($this->admin());
+        $this->get(route('admin.services.index', ['view' => 'trial']))->assertOk()->assertSee('trial.test')->assertDontSee('live.test');
+        $this->get(route('admin.services.index', ['view' => 'active']))->assertSee('live.test')->assertDontSee('trial.test');
+        $this->get(route('admin.services.index', ['view' => 'cancelled']))->assertSee('gone.test')->assertDontSee('live.test');
+        $this->get(route('admin.services.index', ['view' => 'pending']))->assertSee('pend.test')->assertDontSee('gone.test');
+        $this->get(route('admin.services.index', ['sort' => 'client', 'dir' => 'asc']))->assertOk();
+        $this->get(route('admin.services.index', ['sort' => 'nope']))->assertSessionHasErrors('sort');
+    }
+
+    public function test_show_renders_summary_trial_card_and_danger_zone(): void
+    {
+        $client = Client::factory()->create();
+        $product = Product::factory()->priced(1000)->create();
+        $svc = Service::create(['client_id' => $client->id, 'product_id' => $product->id, 'status' => ServiceStatus::Active, 'billing_cycle' => 'monthly', 'amount' => 1000, 'currency' => 'USD', 'trial_ends_at' => now()->addDays(5), 'next_due_date' => now()->addDays(5), 'activated_at' => now()]);
+        $this->actingAs($this->admin())->get(route('admin.services.show', $svc))->assertOk()->assertSee('Service summary')->assertSee('days left')->assertSee('Free trial')->assertSee('Danger zone')->assertSee('Terminate service');
+    }
 }

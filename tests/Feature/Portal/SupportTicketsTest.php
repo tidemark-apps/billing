@@ -190,6 +190,27 @@ class SupportTicketsTest extends TestCase
         $this->assertSame(2, $ticket->messages()->where('kind', 'reply')->count());
     }
 
+    public function test_list_splits_open_and_closed_with_plain_status_wording(): void
+    {
+        $open = $this->ticketFor($this->user, ['subject' => 'Still open']);
+        $done = $this->ticketFor($this->user, ['subject' => 'All done']);
+        $done->update(['status' => TicketStatus::Closed]);
+
+        $this->actingAs($this->user)->get(route('portal.tickets.index'))->assertOk()
+            ->assertSee('Still open')->assertDontSee('All done')->assertSee('Waiting for us');
+        $this->get(route('portal.tickets.index', ['view' => 'closed']))->assertSee('All done')->assertDontSee('Still open');
+        $open->update(['status' => TicketStatus::Answered]);
+        $this->get(route('portal.tickets.index'))->assertSee('We replied')->assertSee('Your reply is needed');
+    }
+
+    public function test_department_choice_renders_as_cards_and_locked_ticket_shows_notice(): void
+    {
+        $this->actingAs($this->user)->get(route('portal.tickets.create'))->assertOk()->assertSee('Who should help?')->assertSee('data-dept-radio', false);
+        $ticket = $this->ticketFor($this->user);
+        $ticket->update(['is_locked' => true]);
+        $this->get(route('portal.tickets.show', $ticket->uuid))->assertOk()->assertSee('This ticket is locked.')->assertDontSee('Send reply');
+    }
+
     public function test_staff_replies_show_first_name_only_and_never_the_email(): void
     {
         $ticket = $this->ticketFor($this->user);

@@ -34,8 +34,24 @@ class PluginController extends Controller
             ];
         });
 
+        $counts = [
+            'all' => $items->count(),
+            'enabled' => $items->where('enabled', true)->count(),
+            'disabled' => $items->where('enabled', false)->count(),
+            'updates' => $items->filter(fn (array $p) => (bool) $p['pending_update'])->count(),
+        ];
+        $view = in_array(request()->query('view'), ['enabled', 'disabled', 'updates'], true) ? request()->query('view') : 'all';
+        $shown = $items->filter(fn (array $p) => match ($view) {
+            'enabled' => $p['enabled'],
+            'disabled' => ! $p['enabled'],
+            'updates' => (bool) $p['pending_update'],
+            default => true,
+        });
+
         return view('admin.plugins.index', [
-            'plugins' => $items,
+            'counts' => $counts,
+            'view' => $view,
+            'plugins' => $shown,
             'path' => $this->installer->targetRoot(),
             'canUpload' => PluginInstaller::uploadEnabled() && request()->user()->isAdmin(),
             'uploadEnabled' => PluginInstaller::uploadEnabled(),

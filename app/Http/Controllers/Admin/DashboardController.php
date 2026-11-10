@@ -35,13 +35,22 @@ class DashboardController extends Controller
             $months[] = ['label' => $m->format('M'), 'value' => max(0, (int) $sum)];
         }
 
+        // Same window last month (1st .. same day-of-month) so the delta compares like with like.
+        $prevStart = $monthStart->copy()->subMonthNoOverflow();
+        $prevEnd = $prevStart->copy()->day(min(now()->day, $prevStart->daysInMonth))->endOfDay();
+        $revenue = $net($paid()->where('paid_at', '>=', $monthStart));
+        $revenuePrev = $net($paid()->whereBetween('paid_at', [$prevStart, $prevEnd]));
+
         $open = Invoice::external()->where('status', InvoiceStatus::Open->value)->where('currency', $currency);
 
         return view('admin.dashboard.index', [
             'currency' => $currency,
-            'revenue' => $net($paid()->where('paid_at', '>=', $monthStart)),
+            'revenue' => $revenue,
+            'revenuePrev' => $revenuePrev,
             'outstanding' => (int) (clone $open)->sum('total') - (int) (clone $open)->sum('amount_paid'),
+            'outstandingCount' => (clone $open)->count(),
             'overdueCount' => Invoice::external()->overdue()->count(),
+            'overdueAmount' => (int) Invoice::external()->overdue()->where('currency', $currency)->sum('total') - (int) Invoice::external()->overdue()->where('currency', $currency)->sum('amount_paid'),
             'activeServices' => Service::external()->where('status', ServiceStatus::Active->value)->count(),
             'newClients' => Client::external()->where('created_at', '>=', now()->subDays(30))->count(),
             'ticketsAwaiting' => TicketService::enabled() ? Ticket::visibleTo($request->user())->whereIn('status', ['open', 'customer_reply'])->count() : null,

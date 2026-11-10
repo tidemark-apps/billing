@@ -1,26 +1,31 @@
 {{-- Two-factor settings panel shared by the staff and client-area security pages. Needs: $prefix, $user, $enabled, $pending, $recoveryCodes, $remaining, $required. --}}
+<div class="form-col">
 @if ($recoveryCodes)
-    <x-card title="Save your recovery codes">
-        <p class="muted" style="margin-bottom:12px">Each code works once if you lose your phone. They are shown <b>only now</b>; store them somewhere safe, such as a password manager.</p>
-        <div class="secret-box" style="display:block"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;font-family:var(--font-mono, monospace)">@foreach ($recoveryCodes as $c)<span>{{ $c }}</span>@endforeach</div></div>
-        <x-slot:footer><span class="help">Regenerating codes later invalidates these.</span><button type="button" class="btn sm" data-copy="{{ implode("\n", $recoveryCodes) }}">Copy codes</button></x-slot:footer>
-    </x-card>
+    <section class="card setting" role="status">
+        <div class="setting-h"><h2>Save your recovery codes</h2><p>Each code works once if you lose your phone. They are shown only now, so store them somewhere safe, such as a password manager.</p></div>
+        <div class="setting-b"><div class="secret-box"><div class="codes">@foreach ($recoveryCodes as $c)<span>{{ $c }}</span>@endforeach</div></div></div>
+        <div class="setting-f"><span class="help">Making new codes later makes these stop working.</span><button type="button" class="btn sm primary" data-copy="{{ implode("\n", $recoveryCodes) }}"><x-icon name="copy" :size="14" /> Copy codes</button></div>
+    </section>
 @endif
 
 @if ($enabled)
-    <x-card title="Two-factor authentication">
-        <div class="row"><span class="pill good">On</span><span class="muted">An authenticator app code is required at sign-in. {{ $remaining }} recovery {{ \Illuminate\Support\Str::plural('code', $remaining) }} left.</span></div>
-    </x-card>
-    <x-setting title="New recovery codes" description="Generates a fresh set and invalidates the old ones." :action="route($prefix.'.recovery-codes')">
-        <div class="grid2"><x-field name="current_password" label="Current password" type="password" required autocomplete="current-password" /><span></span></div>
-        <x-slot:footer><button class="btn sm" type="submit">Generate new codes</button></x-slot:footer>
-    </x-setting>
+    <section class="card setting">
+        <div class="setting-h"><h2>Two-factor authentication <span class="pill good">On</span></h2><p>An authenticator app code is required at sign-in. {{ $remaining }} recovery {{ \Illuminate\Support\Str::plural('code', $remaining) }} left.</p></div>
+        @if ($remaining <= 2)<div class="setting-b"><div class="notice warn"><x-icon name="triangle-alert" :size="16" /><div>You are running low on recovery codes. Make a new set below.</div></div></div>@endif
+    </section>
+    <form class="card setting" method="POST" action="{{ route($prefix.'.recovery-codes') }}" novalidate>
+        @csrf
+        <div class="setting-h"><h2>New recovery codes</h2><p>Makes a fresh set and stops the old ones working.</p></div>
+        <div class="setting-b"><x-system-field name="current_password" label="Current password" type="password" required autocomplete="current-password" /></div>
+        <div class="setting-f"><span class="help">The new codes are shown once.</span><button class="btn sm" type="submit">Make new codes</button></div>
+    </form>
     <x-card title="Trusted devices" :flush="true">
         <x-slot:actions>@if ($devices->isNotEmpty())<form method="POST" action="{{ route($prefix.'.devices.destroy-all') }}" data-confirm="Revoke every trusted device? Each one will ask for a code at its next sign-in." data-confirm-label="Revoke all" data-danger>@csrf @method('DELETE')<button class="btn sm danger" type="submit">Revoke all</button></form>@endif</x-slot:actions>
         @if ($devices->isEmpty())
-            <p class="muted" style="padding:16px">No devices are remembered. Tick "Remember this device" when you enter a code at sign-in to skip the prompt for {{ \App\Services\TwoFactor::DEVICE_DAYS }} days.</p>
+            @php($tip = 'Tick "Remember this device" when you enter a code at sign-in to skip the prompt for '.\App\Services\TwoFactor::DEVICE_DAYS.' days.')
+            <x-empty icon="laptop" title="No trusted devices" :text="$tip" />
         @else
-            <table class="t stack-sm"><thead><tr><th>Device</th><th>IP address</th><th>Added</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>
+            <table class="t stack-sm"><thead><tr><th>Device</th><th>IP address</th><th>Added</th><th>Last used</th><th>Expires</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
                 @foreach ($devices as $d)
                 <tr><td data-label="Device"><b>{{ $d->label ?: 'Unknown device' }}</b>@if ($d->id === $currentDeviceId) <span class="pill good">This device</span>@endif</td>
                     <td data-label="IP address" class="mono">{{ $d->ip ?? 'Unknown' }}</td>
@@ -33,31 +38,35 @@
         @endif
     </x-card>
     @if ($required)
-        <x-card title="Turn off"><p class="muted">Two-factor authentication is required for staff on this installation, so it cannot be turned off.</p></x-card>
+        <section class="card setting"><div class="setting-h"><h2>Turn off</h2><p>Two-factor authentication is required for staff on this installation, so it cannot be turned off.</p></div></section>
     @else
-        <x-setting title="Turn off two-factor authentication" description="Needs your password and a current code (or a recovery code)." :action="route($prefix.'.disable')" method="DELETE" :danger="true">
-            <div class="grid2"><x-field name="current_password" label="Current password" type="password" required autocomplete="current-password" />
-                <x-field name="code" label="Authenticator or recovery code" required autocomplete="one-time-code" /></div>
-            <x-slot:footer><button class="btn danger sm" type="submit">Turn off</button></x-slot:footer>
-        </x-setting>
+        <form class="card setting danger-zone" method="POST" action="{{ route($prefix.'.disable') }}" novalidate>
+            @csrf @method('DELETE')
+            <div class="setting-h"><h2>Turn off two-factor authentication</h2><p>Your account will be protected by your password alone. Needs your password and a current code (or a recovery code).</p></div>
+            <div class="setting-b"><x-system-field name="current_password" label="Current password" type="password" required autocomplete="current-password" />
+                <x-system-field name="code" label="Authenticator or recovery code" required autocomplete="one-time-code" /></div>
+            <div class="setting-f"><span class="help">You can turn it on again at any time.</span><button class="btn danger sm" type="submit">Turn off two-factor</button></div>
+        </form>
     @endif
 @elseif ($pending)
-    <x-setting title="Set up your authenticator app" description="Scan the QR code with an authenticator app (1Password, Authy, Google Authenticator...), then enter the 6-digit code it shows." :action="route($prefix.'.confirm')">
-        <div class="row" style="align-items:flex-start;gap:24px;flex-wrap:wrap">
-            <div role="img" aria-label="QR code for your authenticator app" style="width:200px;height:200px;background:#fff;padding:6px;border-radius:8px;flex:none">{!! $qr !!}</div>
-            <div class="stack sm grow" style="min-width:240px">
-                <div><span class="muted small">Can't scan? Enter this key</span>
-                    <div class="secret-box"><span class="grow" style="word-break:break-all">{{ trim(chunk_split($secret, 4, ' ')) }}</span><button type="button" class="btn sm" data-copy="{{ $secret }}">Copy</button></div></div>
-                <div><span class="muted small">Or use this setup link</span>
-                    <div class="secret-box"><span class="grow" style="word-break:break-all">{{ $uri }}</span><button type="button" class="btn sm" data-copy="{{ $uri }}">Copy</button></div></div>
-                <x-field name="code" label="6-digit code" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" />
-            </div>
+    <form class="card setting" method="POST" action="{{ route($prefix.'.confirm') }}" novalidate>
+        @csrf
+        <div class="setting-h"><h2>Set up your authenticator app</h2><p>Scan the QR code with an authenticator app (1Password, Authy, Google Authenticator), then enter the 6-digit code it shows.</p></div>
+        <div class="setting-b">
+            <div class="qr-box" role="img" aria-label="QR code for your authenticator app">{!! $qr !!}</div>
+            <div><span class="muted small">Can't scan? Enter this key</span>
+                <div class="secret-box"><span class="grow break-all">{{ trim(chunk_split($secret, 4, ' ')) }}</span><button type="button" class="btn sm" data-copy="{{ $secret }}">Copy</button></div></div>
+            <div><span class="muted small">Or use this setup link</span>
+                <div class="secret-box"><span class="grow break-all">{{ $uri }}</span><button type="button" class="btn sm" data-copy="{{ $uri }}">Copy</button></div></div>
+            <x-system-field name="code" label="6-digit code" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" help="It changes every 30 seconds." />
         </div>
-        <x-slot:footer><button class="btn primary sm" type="submit">Confirm and turn on</button><button class="btn ghost sm" type="submit" formaction="{{ route($prefix.'.cancel') }}" formnovalidate>Cancel</button></x-slot:footer>
-    </x-setting>
+        <div class="setting-f"><button class="btn ghost sm" type="submit" formaction="{{ route($prefix.'.cancel') }}" formnovalidate>Cancel setup</button><button class="btn primary sm" type="submit">Confirm and turn on</button></div>
+    </form>
 @else
-    <x-card title="Two-factor authentication">
-        <div class="row spread"><div><span class="pill">Off</span> <span class="muted">Add a second step at sign-in so a stolen password is not enough.</span>@if ($required)<p class="muted small" style="margin-top:6px">Required for staff on this installation.</p>@endif</div>
-            <form method="POST" action="{{ route($prefix.'.start') }}">@csrf<button class="btn primary" type="submit">Set up</button></form></div>
-    </x-card>
+    <section class="card setting">
+        <div class="setting-h"><h2>Two-factor authentication <span class="pill">Off</span></h2><p>Add a second step at sign-in so a stolen password is not enough.@if ($required) Required for staff on this installation.@endif</p></div>
+        <div class="setting-f"><span class="help">Takes about a minute with any authenticator app.</span>
+            <form method="POST" action="{{ route($prefix.'.start') }}">@csrf<button class="btn primary sm" type="submit">Set up two-factor</button></form></div>
+    </section>
 @endif
+</div>

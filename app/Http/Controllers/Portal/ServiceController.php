@@ -18,9 +18,22 @@ class ServiceController extends PortalController
 
     public function index(Request $request)
     {
-        $services = $this->client()->services()->with('product')->latest()->paginate(20);
+        $base = $this->client()->services();
+        $by = (clone $base)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $counts = [
+            '' => (int) $by->sum(),
+            'active' => (int) ($by['active'] ?? 0),
+            'pending' => (int) ($by['pending'] ?? 0),
+            'suspended' => (int) ($by['suspended'] ?? 0),
+            'ended' => (int) (($by['cancelled'] ?? 0) + ($by['terminated'] ?? 0)),
+        ];
+        $status = (string) $request->query('status');
+        $services = (clone $base)->with('product')
+            ->when($status === 'ended', fn ($q) => $q->whereIn('status', ['cancelled', 'terminated']))
+            ->when(in_array($status, ['active', 'pending', 'suspended'], true), fn ($q) => $q->where('status', $status))
+            ->latest()->paginate(20)->withQueryString();
 
-        return view('portal.services.index', ['services' => $services]);
+        return view('portal.services.index', ['services' => $services, 'status' => $status, 'counts' => $counts]);
     }
 
     public function show(string $service)

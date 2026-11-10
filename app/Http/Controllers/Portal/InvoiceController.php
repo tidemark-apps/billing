@@ -10,11 +10,19 @@ class InvoiceController extends PortalController
     public function index(Request $request)
     {
         $status = $request->query('status');
-        $invoices = $this->client()->invoices()->where('status', '!=', 'draft')
+        $base = $this->client()->invoices()->where('status', '!=', 'draft');
+        $counts = (clone $base)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $counts = [
+            '' => (int) $counts->sum(),
+            'open' => (int) ($counts['open'] ?? 0),
+            'paid' => (int) ($counts['paid'] ?? 0),
+            'void' => (int) ($counts['void'] ?? 0),
+        ];
+        $invoices = (clone $base)
             ->when(in_array($status, ['open', 'paid', 'void', 'uncollectible'], true), fn ($q) => $q->where('status', $status))
             ->latest('id')->paginate(20)->withQueryString();
 
-        return view('portal.invoices.index', ['invoices' => $invoices, 'status' => $status]);
+        return view('portal.invoices.index', ['invoices' => $invoices, 'status' => (string) $status, 'counts' => $counts]);
     }
 
     public function show(GatewayRegistry $gateways, string $invoice)

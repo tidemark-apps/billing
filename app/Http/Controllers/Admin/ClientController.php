@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\Role;
 use App\Enums\ServiceStatus;
 use App\Events\ClientCreated;
@@ -22,18 +23,52 @@ use Illuminate\Validation\Rules\Password;
 
 class ClientController extends Controller
 {
+    private const SORTS = ['client', 'email', 'country', 'services', 'status', 'since'];
+
     public function index(Request $request)
     {
+        $request->validate(['view' => ['nullable', Rule::in(['active', 'inactive', 'closed', 'internal'])], 'sort' => ['nullable', Rule::in(self::SORTS)], 'dir' => ['nullable', Rule::in(['asc', 'desc'])], 'q' => ['nullable', 'string', 'max:100']]);
+        $view = (string) $request->input('view', 'all');
+        $sort = (string) $request->input('sort', 'since');
+        $dir = $request->input('dir') === 'asc' ? 'asc' : 'desc';
+        if (! $request->filled('sort')) {
+            $dir = 'desc';
+        }
+
         $clients = Client::query()
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = (string) $request->string('q');
                 $q->where(fn ($w) => $w->whereContains('name', $term)->orWhereContains('company_name', $term)->orWhereContains('email', $term));
             })
+            ->when(in_array($view, ['active', 'inactive', 'closed'], true), fn ($q) => $q->where('status', $view))
+            ->when($view === 'internal', fn ($q) => $q->where('is_internal', true))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->withCount(['services as live_services_count' => fn ($q) => $q->whereIn('status', ['active', 'suspended'])])
-            ->latest('id')->paginate(25)->withQueryString();
+            ->withCount(['services as live_services_count' => fn ($q) => $q->whereIn('status', ['active', 'suspended'])]);
 
-        return view('admin.clients.index', ['clients' => $clients]);
+        match ($sort) {
+            'client' => $clients->orderByRaw("lower(coalesce(nullif(company_name, ''), name)) {$dir}"),
+            'email' => $clients->orderBy('email', $dir),
+            'country' => $clients->orderBy('country', $dir),
+            'services' => $clients->orderBy('live_services_count', $dir),
+            'status' => $clients->orderBy('status', $dir),
+            default => $clients->orderBy('id', $dir),
+        };
+
+        $byStatus = Client::query()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+
+        return view('admin.clients.index', [
+            'clients' => $clients->orderBy('id', 'desc')->paginate(25)->withQueryString(),
+            'view' => $view,
+            'sort' => $sort,
+            'dir' => $dir,
+            'counts' => [
+                'all' => (int) $byStatus->sum(),
+                'active' => (int) ($byStatus['active'] ?? 0),
+                'inactive' => (int) ($byStatus['inactive'] ?? 0),
+                'closed' => (int) ($byStatus['closed'] ?? 0),
+                'internal' => Client::where('is_internal', true)->count(),
+            ],
+        ]);
     }
 
     public function create()
@@ -68,7 +103,17 @@ class ClientController extends Controller
     {
         $client->load(['services.product', 'invoices' => fn ($q) => $q->latest('id'), 'quotes' => fn ($q) => $q->latest('id'), 'payments' => fn ($q) => $q->latest('id'), 'users']);
 
-        return view('admin.clients.show', ['client' => $client, 'loginUser' => $client->users->first(fn (User $u) => $u->is_active)]);
+        $open = $client->invoices->where('status', InvoiceStatus::Open);
+        $paid = $client->payments->where('status', PaymentStatus::Completed)->sum(fn ($p) => $p->isRefund() ? -$p->amount : $p->amount);
+
+        return view('admin.clients.show', [
+            'client' => $client,
+            'loginUser' => $client->users->first(fn (User $u) => $u->is_active),
+            'lifetimePaid' => (int) $paid,
+            'openBalance' => (int) $open->sum(fn ($i) => $i->balance()),
+            'openCount' => $open->count(),
+            'liveServices' => $client->services->filter(fn ($s) => $s->status->isLive())->count(),
+        ]);
     }
 
     public function edit(Client $client)

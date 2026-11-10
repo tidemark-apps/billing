@@ -5,9 +5,9 @@
 <form method="POST" action="{{ route('two-factor.verify') }}" class="stack">
     @csrf
     @if ($recovery)<input type="hidden" name="recovery" value="1">
-        <x-field name="code" label="Recovery code" required autofocus autocomplete="off" placeholder="xxxxx-xxxxx" />
+        <x-field name="code" label="Recovery code" required autofocus autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="xxxxx-xxxxx" />
     @else
-        <x-field name="code" label="Authentication code" required autofocus autocomplete="one-time-code" inputmode="numeric" />
+        <x-field name="code" label="Authentication code" required autofocus autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" help="The code changes every 30 seconds." />
     @endif
     <label class="check"><input type="checkbox" name="remember_device" value="1"> Remember this device for 30 days</label>
     <button class="btn primary" type="submit">Verify</button>

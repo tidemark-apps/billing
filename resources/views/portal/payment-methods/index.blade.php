@@ -3,8 +3,8 @@
 @section('content')
 <x-page-head title="Payment methods" sub="Save a card or wallet at our payment provider to pay invoices faster, or have them paid automatically on the due date." />
 <x-card title="Saved methods" :flush="true">
-@if ($methods->isEmpty())<x-empty icon="credit-card" title="No saved payment methods" />@else
-<table class="t"><thead><tr><th>Method</th><th>Expires</th><th>Automatic payment</th><th></th></tr></thead><tbody>
+@if ($methods->isEmpty())<x-empty icon="credit-card" title="No saved payment methods" text="Add one below to pay faster or turn on automatic payment." />@else
+<div class="tscroll"><table class="t"><thead><tr><th>Method</th><th>Expires</th><th>Automatic payment</th><th></th></tr></thead><tbody>
 @foreach ($methods as $m)
 <tr>
     <td><b>{{ $m->displayName() }}</b> @if ($m->is_default)<span class="pill good">Default</span>@endif @if ($m->isExpired())<span class="pill bad">Expired</span>@endif<div class="muted small">{{ $titles[$m->gateway] ?? ucfirst($m->gateway) }}</div></td>
@@ -13,13 +13,13 @@
         <input type="hidden" name="autopay" value="{{ $m->autopay ? 0 : 1 }}">
         <span class="pill {{ $m->autopay ? 'good' : '' }}">{{ $m->autopay ? 'On' : 'Off' }}</span>
         <button class="btn sm" type="submit">{{ $m->autopay ? 'Turn off' : 'Turn on' }}</button></form></td>
-    <td class="right"><div class="row" style="justify-content:flex-end">
+    <td class="right"><div class="row end">
         @unless ($m->is_default)<form method="POST" action="{{ route('portal.payment-methods.default', $m->uuid) }}">@csrf<button class="btn sm" type="submit">Make default</button></form>@endunless
-        <form method="POST" action="{{ route('portal.payment-methods.destroy', $m->uuid) }}" data-confirm="Remove {{ $m->displayName() }}?" data-confirm-label="Remove" data-danger>@csrf @method('DELETE')<button class="btn sm danger" type="submit">Remove</button></form>
+        <form method="POST" action="{{ route('portal.payment-methods.destroy', $m->uuid) }}" data-confirm="Remove {{ $m->displayName() }}? It can no longer be used to pay invoices{{ $m->autopay ? ' and automatic payments will stop' : '' }}." data-confirm-label="Remove method" data-danger>@csrf @method('DELETE')<button class="btn sm danger" type="submit">Remove</button></form>
     </div></td>
 </tr>
 @endforeach
-</tbody></table>@endif
+</tbody></table></div>@endif
 </x-card>
 @if ($gateways)
 <form method="POST" action="{{ route('portal.payment-methods.setup') }}" class="card setting">@csrf

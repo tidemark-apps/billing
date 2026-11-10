@@ -26,7 +26,7 @@ class TaxRateController extends Controller
 
     public function update(Request $request, TaxRate $tax_rate): RedirectResponse
     {
-        $tax_rate->update($this->validated($request));
+        $tax_rate->update($this->validated($request, 'rate-'.$tax_rate->id));
         Activity::log('tax_rate.updated', $tax_rate, 'Updated tax rate '.$tax_rate->name);
 
         return back()->with('status', 'Tax rate saved.');
@@ -41,15 +41,24 @@ class TaxRateController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function validated(Request $request): array
+    private function validated(Request $request, string $bag = 'default'): array
     {
-        $data = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:100'],
             'rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'country' => ['nullable', 'string', 'size:2'],
             'region' => ['nullable', 'string', 'max:100'],
             'is_active' => ['nullable', 'boolean'],
-        ]);
+        ];
+        $messages = [
+            'name.required' => 'Give the rate a name, for example VAT.',
+            'rate.required' => 'Enter the percentage, for example 20.',
+            'rate.numeric' => 'Enter the rate as a number, for example 7.5.',
+            'rate.min' => 'The rate cannot be negative.',
+            'rate.max' => 'The rate cannot be more than 100.',
+            'country.size' => 'Choose a country from the list.',
+        ];
+        $data = $bag === 'default' ? $request->validate($rules, $messages) : $request->validateWithBag($bag, $rules, $messages);
         $data['country'] = isset($data['country']) ? strtoupper($data['country']) : null;
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
 

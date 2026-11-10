@@ -54,4 +54,39 @@ class SettingsTest extends TestCase
         config(['billing.cron_token' => 'secret-token']);
         $this->get('/cron/secret-token')->assertOk()->assertSee('ok');
     }
+
+    public function test_settings_tabs_have_a_save_bar_and_group_by_topic(): void
+    {
+        $admin = $this->admin();
+        $page = $this->actingAs($admin)->get('/admin/settings/billing')->assertOk()
+            ->assertSee('data-savebar', false)->assertSee('data-dirty-form', false)->assertSee('Save billing settings')
+            ->assertSee('Numbering and payment terms')->assertSee('Recurring billing');
+        $this->assertSame(1, substr_count($page->getContent(), 'data-dirty-form novalidate'));
+    }
+
+    public function test_stored_secrets_are_masked_with_a_replace_button(): void
+    {
+        $admin = $this->admin();
+        Settings::set('mail.password', 'hunter2-secret', true);
+
+        $page = $this->actingAs($admin)->get('/admin/settings/email')->assertOk()->assertSee('data-secret-replace', false)->assertSee('Send test email');
+        $this->assertStringNotContainsString('hunter2-secret', $page->getContent());
+        $this->assertStringContainsString('name="s[mail__password]" value="" disabled', $page->getContent());
+    }
+
+    public function test_validation_errors_show_a_summary_and_inline_message(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->from('/admin/settings/billing')->put('/admin/settings/billing', ['s' => ['billing__due_days' => 'soon']])->assertRedirect('/admin/settings/billing');
+        $this->actingAs($admin)->get('/admin/settings/billing')->assertSee('Nothing was saved')->assertSee('field-error', false);
+    }
+
+    public function test_payments_tab_masks_gateway_secrets_with_replace_and_offers_the_webhook_url(): void
+    {
+        $this->enablePlugin('stripe');
+        Settings::set('gateway.stripe.secret_key', 'sk_test_topsecret', true);
+        $page = $this->actingAs($this->admin())->get('/admin/settings/payments')->assertOk()
+            ->assertSee('Save payment settings')->assertSee('data-secret-replace', false)->assertSee(route('webhooks.gateway', 'stripe'), false);
+        $this->assertStringNotContainsString('sk_test_topsecret', $page->getContent());
+    }
 }

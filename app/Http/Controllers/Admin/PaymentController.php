@@ -24,8 +24,21 @@ class PaymentController extends Controller
             'client_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
+            'view' => ['nullable', 'in:payments,refunds,pending,failed'],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
+        $view = $filters['view'] ?? 'all';
+        unset($filters['view']);
         $query = Payment::with('client', 'invoice')
+            ->when($view === 'payments', fn ($q) => $q->where('type', 'payment'))
+            ->when($view === 'refunds', fn ($q) => $q->where('type', 'refund'))
+            ->when($view === 'pending', fn ($q) => $q->where('status', PaymentStatus::Pending->value))
+            ->when($view === 'failed', fn ($q) => $q->where('status', PaymentStatus::Failed->value))
+            ->when($filters['q'] ?? null, function ($q, $term) {
+                $q->where(fn ($w) => $w->whereContains('reference', $term)
+                    ->orWhereHas('invoice', fn ($i) => $i->whereContains('number', $term))
+                    ->orWhereHas('client', fn ($c) => $c->whereContains('name', $term)->orWhereContains('company_name', $term)->orWhereContains('email', $term)));
+            })
             ->when($filters['gateway'] ?? null, fn ($q, $v) => $q->where('gateway', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v))
@@ -44,6 +57,14 @@ class PaymentController extends Controller
         return view('admin.payments.index', [
             'payments' => $query->latest('id')->paginate(25)->withQueryString(),
             'filters' => $filters,
+            'view' => $view,
+            'counts' => [
+                'all' => Payment::count(),
+                'payments' => Payment::where('type', 'payment')->count(),
+                'refunds' => Payment::where('type', 'refund')->count(),
+                'pending' => Payment::where('status', PaymentStatus::Pending->value)->count(),
+                'failed' => Payment::where('status', PaymentStatus::Failed->value)->count(),
+            ],
             'totals' => $totals,
             'gateways' => Payment::query()->distinct()->orderBy('gateway')->pluck('gateway'),
             'clients' => Client::orderBy('name')->get(['id', 'name', 'company_name']),
