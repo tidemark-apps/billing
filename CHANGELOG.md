@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-10
+
+### Fixed
+- Changing a client's email in the admin now also changes the login that used the old address, and moves their open tickets to the new one. Before, new tickets kept being opened (and answered) at the old address.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added
