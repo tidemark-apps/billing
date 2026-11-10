@@ -215,7 +215,12 @@ class SettingsController extends Controller
                     $f('autopay.max_attempts', 'Maximum attempts per invoice', ['type' => 'number', 'default' => 4, 'help' => 'The first charge plus retries. After the last failure autopay stops for that invoice and the customer and admin are notified.']),
                 ]],
             ],
-            'email' => [
+            'email' => config('billing.hosted') ? [
+                ['title' => 'Outgoing email', 'description' => 'Email is sent through your host. You can choose the name it appears to come from.', 'test' => 'email', 'fields' => [
+                    $f('mail.enabled', 'Send emails', ['heading' => 'Sender', 'type' => 'checkbox', 'default' => true, 'help' => 'Turn off to stop all outgoing mail, for example while testing.']),
+                    $f('mail.from_name', 'From name'),
+                ]],
+            ] : [
                 ['title' => 'Outgoing email', 'description' => 'Invoices, receipts and reminders are sent from here. Save before sending a test: it uses the saved settings.', 'test' => 'email', 'fields' => [
                     $f('mail.enabled', 'Send emails', ['heading' => 'Sender', 'type' => 'checkbox', 'default' => true, 'help' => 'Turn off to stop all outgoing mail, for example while testing.']),
                     $f('mail.from_address', 'From address', ['type' => 'email']),

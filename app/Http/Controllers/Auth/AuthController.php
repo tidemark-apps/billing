@@ -11,6 +11,7 @@ use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -49,6 +50,22 @@ class AuthController extends Controller
         }
 
         return $this->finishLogin($request, $user, $request->boolean('remember'));
+    }
+
+    /** One-time sign-in link made by `php artisan billing:login-link` (signed, expiring, usable once). Two-factor still applies. */
+    public function loginLink(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($request->hasValidSignature() && $user->is_active, 403, 'This sign-in link is invalid or has expired.');
+        abort_unless(Cache::add('login-link:'.$request->query('signature'), 1, now()->addDay()), 403, 'This sign-in link has already been used.');
+
+        if ($user->hasTwoFactor()) {
+            $request->session()->put('two_factor', ['id' => $user->id, 'expires' => now()->addMinutes(5)->getTimestamp(), 'remember' => false]);
+
+            return redirect()->route('two-factor.challenge');
+        }
+        Activity::log('auth.login_link', $user, "{$user->email} signed in with a one-time link");
+
+        return $this->finishLogin($request, $user, false);
     }
 
     public function showChallenge(Request $request)

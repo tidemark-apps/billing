@@ -16,7 +16,12 @@ class EnsureInstalled
         $onInstaller = $request->is('install', 'install/*');
 
         if (! $installed && ! $onInstaller && ! $request->is('up')) {
+            abort_if(config('billing.hosted'), 503, 'This install is still being set up. Try again in a minute.');
+
             return redirect('/install');
+        }
+        if ($onInstaller && config('billing.hosted')) {
+            abort(404); // a hosted install is created with `php artisan billing:install`, never through the browser
         }
         if ($installed && $onInstaller) {
             return redirect('/');

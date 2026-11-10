@@ -53,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
     /** Let admins configure outgoing email in Settings → Email instead of editing .env on shared hosting. */
     private function applyMailSettings(): void
     {
+        if (config('billing.hosted')) {
+            // The transport and sender address are fixed by the host; the owner can only choose the display name.
+            if ($name = Settings::get('mail.from_name')) {
+                config(['mail.from.name' => $name]);
+            }
+
+            return;
+        }
         $mailer = Settings::get('mail.mailer');
         if (! $mailer) {
             return;

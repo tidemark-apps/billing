@@ -10,6 +10,10 @@ return [
     // Let visitors create customer accounts themselves. Can be changed in Settings → General.
     'registration' => (bool) env('BILLING_REGISTRATION', true),
 
+    // Hosted mode: this install is run for you by a hosting provider. The web installer and plugin uploads are closed and
+    // the mail transport (SMTP/sendmail) comes from the environment, not from Settings → Email. Off for self-hosting.
+    'hosted' => (bool) env('BILLING_HOSTED', false),
+
     // Where plugins live. Each plugin is a folder with a plugin.json manifest.
     'plugins_path' => env('BILLING_PLUGINS_PATH', base_path('plugins')),
 
@@ -18,7 +22,7 @@ return [
 
     // Install/upgrade/delete plugins from Admin → Plugins by uploading a .zip. Plugins run arbitrary PHP with full
     // access to the app and database: set to false on hosts where only you should be able to add code.
-    'allow_plugin_upload' => (bool) env('BILLING_ALLOW_PLUGIN_UPLOAD', true),
+    'allow_plugin_upload' => (bool) env('BILLING_ALLOW_PLUGIN_UPLOAD', true) && ! (bool) env('BILLING_HOSTED', false),
 
     // Zip-bomb guards for plugin archives.
     'plugin_upload' => [
