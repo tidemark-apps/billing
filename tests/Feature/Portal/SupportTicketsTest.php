@@ -247,4 +247,23 @@ class SupportTicketsTest extends TestCase
 
         return TicketAttachment::create(['ticket_id' => $ticket->id, 'ticket_message_id' => $message->id, 'disk' => 'tickets', 'path' => 'x/'.$name, 'original_name' => $name, 'mime' => 'text/plain', 'size' => 7, 'sha256' => str_repeat('a', 64)]);
     }
+
+    public function test_changing_the_account_email_moves_the_login_and_open_tickets_to_the_new_address(): void
+    {
+        $old = $this->user->email;
+        $open = $this->ticketFor($this->user);
+        $closed = $this->ticketFor($this->user, ['subject' => 'Old one']);
+        $closed->update(['status' => TicketStatus::Closed]);
+
+        $this->actingAs($this->staffUser())->put(route('admin.clients.update', $this->user->client), [
+            'name' => $this->user->client->name, 'email' => 'new.address@example.test', 'currency' => $this->user->client->currency, 'status' => 'active',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('new.address@example.test', $this->user->refresh()->email);
+        $this->assertSame('new.address@example.test', $open->refresh()->requester_email);
+        $this->assertSame($old, $closed->refresh()->requester_email);
+
+        $this->actingAs($this->user)->post(route('portal.tickets.store'), ['department' => 'sales', 'subject' => 'After the change', 'body' => 'Hello'])->assertSessionHasNoErrors();
+        $this->assertSame('new.address@example.test', Ticket::where('subject', 'After the change')->firstOrFail()->requester_email);
+    }
 }

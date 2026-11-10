@@ -21,6 +21,25 @@ class Client extends Model
 
     protected $guarded = ['id'];
 
+    protected static function booted(): void
+    {
+        // Changing the account's email must reach the places that copied it: the login(s) that used it and the tickets still open.
+        static::updated(function (Client $client) {
+            if ($client->wasChanged('email')) {
+                $old = strtolower((string) $client->getOriginal('email'));
+                $new = strtolower((string) $client->email);
+                if ($old !== '' && $old !== $new) {
+                    foreach ($client->users()->whereRaw('lower(email) = ?', [$old])->get() as $user) {
+                        if (! User::where('email', $new)->where('id', '!=', $user->id)->exists()) {
+                            $user->update(['email' => $new]);
+                        }
+                    }
+                    Ticket::where('client_id', $client->id)->whereRaw('lower(requester_email) = ?', [$old])->where('status', '!=', 'closed')->update(['requester_email' => $new]);
+                }
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return ['meta' => 'array', 'is_internal' => 'boolean'];
