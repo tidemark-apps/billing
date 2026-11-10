@@ -1284,7 +1284,7 @@ table.t td .subject:hover { text-decoration: underline; }
 .choice:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
 
 /* ---- polish fixes ---------------------------------------------------------------------------------------------- */
-.setting-h:has(+ .setting-f) { padding-bottom: 20px; } /* a card with only a header and footer (danger zones, 2FA) */
+.setting-h:has(+ .setting-f), .setting-h:last-child { padding-bottom: 20px; } /* a card with only a header and footer (danger zones, 2FA) */
 .stats .stat-card:not(.big) { min-height: 0; }
 .notice.copy-row { align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .notice.copy-row code { flex: 1 1 240px; min-width: 0; }

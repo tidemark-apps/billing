@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-10
+
+### Fixed
+- Cards that hold only a heading and a line of text, such as the two-factor authentication status and "Turn off" cards, had no space below the text. They now have the same padding as the other cards.
+
 ## [0.5.1] - 2026-11-10
 
 ### Fixed
