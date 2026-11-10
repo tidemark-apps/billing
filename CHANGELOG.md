@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- Admin → Services (and the other lists and pages that show a client or product) no longer fail with a server error after a client or product that only has closed services or old invoices has been deleted. Those records now keep showing the deleted client's name.
+
 ## [0.1.0] - 2026-11-09
 
 First release of Tidemark Billing: an open-source billing system and client portal that runs on ordinary PHP shared hosting or in Docker.

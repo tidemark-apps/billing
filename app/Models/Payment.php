@@ -31,7 +31,8 @@ class Payment extends Model
 
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        // a deleted client keeps its history, so records that point at it must still load it
+        return $this->belongsTo(Client::class)->withTrashed();
     }
 
     public function isRefund(): bool

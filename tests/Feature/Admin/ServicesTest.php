@@ -92,4 +92,25 @@ class ServicesTest extends TestCase
         $this->get(route('admin.services.index', ['q' => 'searchable', 'status' => 'active']))->assertOk()->assertSee('Searchable Co');
         $this->get(route('admin.services.index', ['status' => 'pending']))->assertOk()->assertDontSee('Searchable Co');
     }
+
+    public function test_lists_still_render_after_a_client_with_only_closed_services_is_deleted(): void
+    {
+        $client = Client::factory()->create(['name' => 'Gone Customer']);
+        $product = Product::factory()->priced(2500)->module('fake')->create();
+        $service = Service::create([
+            'client_id' => $client->id, 'product_id' => $product->id, 'status' => ServiceStatus::Terminated,
+            'billing_cycle' => 'monthly', 'amount' => 2500, 'currency' => 'USD', 'label' => 'old.example',
+        ]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->delete(route('admin.clients.destroy', $client))->assertRedirect();
+        $this->assertSoftDeleted($client);
+
+        $this->actingAs($admin)->get(route('admin.services.index'))->assertOk()->assertSee('old.example')->assertSee('Gone Customer');
+        $this->actingAs($admin)->get(route('admin.services.show', $service))->assertOk();
+        $this->actingAs($admin)->get(route('admin.invoices.index'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.payments.index'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.quotes.index'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
+    }
 }
