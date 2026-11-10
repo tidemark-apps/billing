@@ -4,6 +4,24 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-13
+
+### Changed
+- A design pass over every screen so Billing looks and behaves like Tidemark Analytics. Same type, spacing, card, button, tab and form styling everywhere; save buttons sit in the card footer; destructive actions live in a "Danger zone" or an overflow menu; one status pill per item (an overdue invoice reads "Overdue", not "Open" and "Overdue").
+- List pages (invoices, quotes, payments, clients, services, products, servers, tickets, staff, plugins, API tokens) have status tabs with live counts, sortable columns and filters that live in the address bar.
+- The dashboard leads with what needs attention (overdue, outstanding, revenue with a comparison to last month), and each figure links to the matching list.
+- Invoice, client and service pages open with a summary header (status, amount due, key dates) and one primary action. The invoice form has a sticky total and save bar and shows errors next to the field.
+- Support tickets: the conversation comes first with the reply box right under it, a Reply / Internal note switch, and the ticket details in a side panel. Customers see plain status wording ("Waiting for us", "We replied").
+- Settings are grouped by topic with helper text, "(optional)" labels, set / replace / keep-current for secrets, and an unsaved-changes warning.
+- The client area dashboard puts what you owe first, with a Pay button on unpaid invoices. Invoice and quote pages have the amount due and the main action above the fold.
+- Orders: a new catalogue with group tabs and plan cards (price, what is included, trial badge, savings on longer billing cycles), a two-column product page with a live "due today" line and a three-step order flow, a review step with Edit, and a clear "Order placed" or "Your free trial has started" confirmation.
+- Product descriptions with several lines are shown as a checklist.
+- Shown addresses read "City, ST 12345". Page titles with an ampersand no longer show `&amp;`.
+
+### Added
+- `php artisan db:seed --class=RichDemoSeeder` fills a throwaway install with a busy set of demo data (clients, services, invoices, quotes, tickets, staff) for screenshots and design reviews.
+- `docs/ui-consistency.md` and `docs/ux-research.md` describe the shared look and the UX rules behind this release, for anyone building plugins or themes.
+
 ## [0.3.1] - 2026-11-12
 
 ### Fixed
