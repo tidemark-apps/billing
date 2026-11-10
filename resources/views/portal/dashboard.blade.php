@@ -25,6 +25,19 @@
     @endforeach</tbody></table>
 </x-card>
 @endif
+@if (\App\Services\TicketService::enabled())
+@php($openTickets = \App\Models\Ticket::where('client_id', $client->id)->open()->orderByDesc('last_reply_at')->get())
+<x-card title="Open support tickets" :flush="true">
+    <x-slot:actions><a class="btn sm" href="{{ route('portal.tickets.index') }}">All tickets</a><a class="btn sm primary" href="{{ route('portal.tickets.create') }}">New ticket</a></x-slot:actions>
+    @if ($openTickets->isEmpty())
+        <x-empty icon="life-buoy" title="No open tickets" text="Need a hand? Open a ticket and we will help."><a class="btn primary sm" href="{{ route('portal.tickets.create') }}">New ticket</a></x-empty>
+    @else
+    <table class="t"><tbody>@foreach ($openTickets->take(5) as $t)
+        <tr><td><a href="{{ route('portal.tickets.show', $t->uuid) }}"><b>{{ $t->subject }}</b></a> <span class="muted small">{{ $t->number }}</span></td><td class="right"><x-status :status="$t->status" />@if ($t->status === \App\Enums\TicketStatus::Answered) <span class="muted small">Awaiting you</span>@endif</td></tr>
+    @endforeach</tbody></table>
+    @endif
+</x-card>
+@endif
 <x-card title="Your services" :flush="true">
     @if ($services->isEmpty())
         <x-empty icon="boxes" title="No services yet" text="Order something from the catalogue and it will show up here."><a class="btn primary sm" href="{{ route('portal.store') }}">Browse services</a></x-empty>

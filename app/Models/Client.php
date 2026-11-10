@@ -23,7 +23,12 @@ class Client extends Model
 
     protected function casts(): array
     {
-        return ['meta' => 'array'];
+        return ['meta' => 'array', 'is_internal' => 'boolean'];
+    }
+
+    public function scopeExternal($query)
+    {
+        return $query->where('is_internal', false);
     }
 
     public function users(): HasMany

@@ -8,11 +8,14 @@ use App\Models\Payment;
 use App\Models\PlanChange;
 use App\Models\Quote;
 use App\Models\Service;
+use App\Models\Ticket;
+use App\Models\TicketMessage;
 use App\Models\User;
 use App\Support\Money;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 /** Every email the billing system sends. Failures are reported but never interrupt the business action. */
 class Notifier
@@ -119,6 +122,98 @@ class Notifier
             ($change->fromProduct?->name ?? 'Previous plan').' → '.($change->toProduct?->name ?? 'New plan').' ('.$change->to_cycle->label().') takes effect '.$when.'.',
             'New price: '.Money::format($change->to_amount, $change->currency).' '.strtolower($change->to_cycle->label()).'.',
         ], 'Manage service', $this->link('portal.services.show', $service));
+    }
+
+    /** The customer's acknowledgement of a new ticket (when the department has auto-reply on). */
+    public function ticketOpened(Ticket $ticket, bool $byStaff = false): void
+    {
+        $ticket->loadMissing('department');
+        if (! $ticket->department?->auto_reply && ! $byStaff) {
+            return;
+        }
+        $first = $ticket->messages()->where('kind', 'reply')->first();
+        $this->ticketMail($ticket, $first, $this->ticketSubject($ticket), $byStaff ? 'We opened a ticket for you' : 'We received your request', array_filter([
+            $byStaff ? 'Our team opened ticket '.$ticket->number.' for you.' : 'Thanks for getting in touch. Your ticket number is '.$ticket->number.' and we will reply as soon as we can.',
+            $byStaff ? $first?->body : null,
+            'You can reply to this email to add to the ticket.',
+        ]), 'View ticket');
+    }
+
+    /** A staff reply, emailed to the customer. */
+    public function ticketReplyToCustomer(Ticket $ticket, TicketMessage $message): void
+    {
+        $count = $message->attachments()->count();
+        $this->ticketMail($ticket, $message, $this->ticketSubject($ticket), 'New reply on '.$ticket->number, array_filter([
+            $message->body,
+            $count > 0 ? $count.' attachment'.($count === 1 ? '' : 's').' — open the ticket to download '.($count === 1 ? 'it' : 'them').'.' : null,
+            $ticket->is_locked ? 'This ticket is locked, so replies are closed.' : 'Reply to this email to answer.',
+        ]), 'View ticket', 'staff');
+    }
+
+    public function ticketClosed(Ticket $ticket): void
+    {
+        $this->ticketMail($ticket, null, $this->ticketSubject($ticket), 'Your ticket was closed', [
+            'Ticket '.$ticket->number.' ("'.$ticket->subject.'") has been closed.',
+            $ticket->is_locked ? null : 'If you still need help, reply to this email or open the ticket to reopen it.',
+        ], 'View ticket');
+    }
+
+    /** Tell the people who work the queue: the assignee, or the whole department when nobody has it yet. */
+    public function ticketForStaff(Ticket $ticket, string $what): void
+    {
+        if (! Settings::bool('support.notify_staff', true)) {
+            return;
+        }
+        $ticket->loadMissing('department', 'assignee');
+        $recipients = $ticket->assignee ? collect([$ticket->assignee]) : ($ticket->department?->staff()->where('is_active', true)->get() ?? collect());
+        $emails = $recipients->pluck('email')->filter()->unique()->values();
+        if ($emails->isEmpty()) {
+            $emails = collect([$this->adminAddress()])->filter();
+        }
+        $last = $ticket->messages()->where('kind', 'reply')->latest('id')->first();
+        $heading = $what === 'new' ? 'New ticket '.$ticket->number : 'New reply on '.$ticket->number;
+        foreach ($emails as $to) {
+            $this->send($to, '['.$ticket->number.'] '.$ticket->subject, $heading, array_filter([
+                $ticket->requester_name.' <'.$ticket->requester_email.'>'.($ticket->department ? ' · '.$ticket->department->name : ''),
+                Str::limit((string) $last?->body, 600),
+            ]), 'Open ticket', $this->link('admin.tickets.show', $ticket));
+        }
+    }
+
+    public function ticketAssigned(Ticket $ticket, User $staff): void
+    {
+        if (! Settings::bool('support.notify_staff', true)) {
+            return;
+        }
+        $this->send($staff->email, '['.$ticket->number.'] assigned to you', 'A ticket was assigned to you', [$ticket->number.': '.$ticket->subject], 'Open ticket', $this->link('admin.tickets.show', $ticket));
+    }
+
+    private function ticketSubject(Ticket $ticket): string
+    {
+        return '['.$ticket->number.'] '.$ticket->subject;
+    }
+
+    /** Customer-facing ticket email: Reply-To is the department address, with Message-ID/In-Reply-To so mail clients thread it. */
+    private function ticketMail(Ticket $ticket, ?TicketMessage $message, string $subject, string $heading, array $lines, string $action, ?string $only = null): void
+    {
+        if (! Settings::bool('mail.enabled', true) || $ticket->requester_email === '') {
+            return;
+        }
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost';
+        $messageId = $message ? 'tkt-'.$ticket->uuid.'-'.$message->id.'@'.$host : null;
+        $previous = $ticket->messages()->whereNotNull('message_id')->when($message, fn ($q) => $q->where('id', '<', $message->id))->latest('id')->value('message_id');
+        try {
+            Mail::to($ticket->requester_email)->send(new BillingMail(
+                $subject, $heading, array_merge(['##- Please type your reply above this line -##'], $lines),
+                $action, $ticket->client_id ? url('/portal/tickets/'.$ticket->uuid) : null, [],
+                $ticket->department?->email, $messageId, $previous ? trim($previous, '<>') : null,
+            ));
+            if ($message && $messageId && $message->message_id === null) {
+                $message->update(['message_id' => $messageId]);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function provisioningFailed(Service $service, string $action, string $message): void

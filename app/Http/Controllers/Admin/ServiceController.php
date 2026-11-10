@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
 use App\Services\BillingRunner;
+use App\Services\InternalAccounts;
 use App\Services\Notifier;
 use App\Services\PlanChangeService;
 use App\Services\ProvisioningService;
@@ -89,7 +90,7 @@ class ServiceController extends Controller
             'label' => $data['label'] ?? null,
             'billing_cycle' => $cycle,
             'currency' => $currency,
-            'amount' => $amount,
+            ...InternalAccounts::pricing($client, $amount),
             'next_due_date' => $trialEnds ?? ($data['next_due_date'] ?? null),
             'trial_ends_at' => $trialEnds,
         ]);
@@ -156,11 +157,11 @@ class ServiceController extends Controller
         ]);
         $amount = Money::toMinor($data['amount'], $service->currency);
         $cycle = BillingCycle::from($data['billing_cycle']);
-        $billingChanged = $amount !== $service->amount || $cycle !== $service->billing_cycle;
+        $billingChanged = ($amount !== $service->amount && ! (InternalAccounts::is($service->client) && $amount === 0)) || $cycle !== $service->billing_cycle;
 
         $service->update([
             'label' => $data['label'] ?? null,
-            'amount' => $amount,
+            ...InternalAccounts::reprice($service, $amount),
             'billing_cycle' => $cycle,
             'next_due_date' => $data['next_due_date'] ?? null,
             'server_id' => $data['server_id'] ?? null,

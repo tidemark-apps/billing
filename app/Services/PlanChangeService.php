@@ -106,8 +106,12 @@ class PlanChangeService
         $price = $to->prices()->where('cycle', $cycle->value)->where('currency', $service->currency)->first()
             ?? throw new \DomainException('That plan has no '.strtolower($cycle->label()).' price in '.$service->currency.'.');
 
+        $service->loadMissing('client');
+        $internal = InternalAccounts::is($service->client);
         $old = $service->amount;
-        $direction = $to->id === $service->product_id ? 'change' : $this->direction($service->amount, $service->billing_cycle, $price->amount, $cycle);
+        $listOld = $internal ? (int) ($service->internal_original_amount ?? 0) : $old;
+        $billed = $internal ? 0 : $price->amount;  // internal accounts pay nothing, whatever the plan
+        $direction = $to->id === $service->product_id ? 'change' : $this->direction($listOld, $service->billing_cycle, $price->amount, $cycle);
         $timing ??= $direction === 'downgrade' ? 'renewal' : 'immediate';
         if (! in_array($timing, ['immediate', 'renewal'], true)) {
             throw new \DomainException('Timing must be "immediate" or "renewal".');
@@ -134,10 +138,10 @@ class PlanChangeService
         } else {
             $credit = (int) round($old * $fraction);
             if ($cycleChanged) {
-                $charge = $price->amount;
+                $charge = $billed;
                 $nextDue = $cycle->advance($today);
             } else {
-                $charge = (int) round($price->amount * $fraction);
+                $charge = (int) round($billed * $fraction);
             }
         }
 
@@ -154,7 +158,8 @@ class PlanChangeService
             'to_cycle' => $cycle,
             'currency' => $service->currency,
             'from_amount' => $old,
-            'to_amount' => $price->amount,
+            'to_amount' => $billed,
+            'list_amount' => $price->amount,
             'credit' => $credit,
             'charge' => $charge,
             'amount_due' => $due,
@@ -264,6 +269,7 @@ class PlanChangeService
             $service->update([
                 'product_id' => $to->id,
                 'amount' => $plan['to_amount'],
+                'internal_original_amount' => InternalAccounts::is($service->client) ? $plan['list_amount'] : null,
                 'billing_cycle' => $plan['to_cycle'],
                 'next_due_date' => $plan['next_due_date'],
             ]);

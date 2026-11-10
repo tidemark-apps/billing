@@ -25,7 +25,7 @@ class StaffUserController extends ApiController
     public function index(Request $request)
     {
         $this->requireAdmin($request, self::ONLY_ADMINS);
-        $query = User::whereIn('role', [Role::Admin, Role::Staff])->orderBy('id');
+        $query = User::with('departments')->whereIn('role', [Role::Admin, Role::Staff])->orderBy('id');
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
@@ -52,8 +52,14 @@ class StaffUserController extends ApiController
             'role' => ['required', Rule::in(['admin', 'staff'])],
             'password' => ['nullable', PasswordRule::min(8)],
             'send_link' => ['nullable', 'boolean'],
+            'department_ids' => ['nullable', 'array'],
+            'department_ids.*' => ['integer', 'exists:ticket_departments,id'],
         ]);
         $user = $this->staff->create($data, $request->boolean('send_link'), ['via' => 'api']);
+        if (array_key_exists('department_ids', $data)) {
+            $user->departments()->sync($data['department_ids'] ?? []);
+            $user->unsetRelation('departments');
+        }
 
         return (new StaffUserResource($user))->response()->setStatusCode(201);
     }
@@ -66,9 +72,16 @@ class StaffUserController extends ApiController
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['sometimes', Rule::in(['admin', 'staff'])],
+            'department_ids' => ['nullable', 'array'],
+            'department_ids.*' => ['integer', 'exists:ticket_departments,id'],
         ]);
+        $updated = $this->staff->update($user, $data, ['via' => 'api']);
+        if (array_key_exists('department_ids', $data)) { // support departments the member works in (replaces the list)
+            $updated->departments()->sync($data['department_ids'] ?? []);
+            $updated->unsetRelation('departments');
+        }
 
-        return new StaffUserResource($this->staff->update($user, $data, ['via' => 'api']));
+        return new StaffUserResource($updated);
     }
 
     public function activate(Request $request, User $user): StaffUserResource

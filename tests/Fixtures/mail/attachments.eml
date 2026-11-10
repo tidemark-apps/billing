@@ -1,0 +1,24 @@
+From: Jane Customer <jane@customer.test>
+To: sales@example.test
+Subject: Screenshot and a file
+Message-ID: <attach-1@customer.test>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+--BOUNDARY
+Content-Type: text/plain; charset=UTF-8
+
+See attached.
+--BOUNDARY
+Content-Type: text/plain; name="notes.txt"
+Content-Disposition: attachment; filename="notes.txt"
+Content-Transfer-Encoding: base64
+
+SGVyZSBhcmUgbXkgbm90ZXMu
+--BOUNDARY
+Content-Type: application/octet-stream; name="evil.exe"
+Content-Disposition: attachment; filename="evil.exe"
+Content-Transfer-Encoding: base64
+
+TVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+--BOUNDARY--

@@ -17,6 +17,7 @@ Built with Laravel, in the same visual language as [Tidemark Analytics](https://
 - **Quotes** that clients accept online with one click, converting straight into an invoice and the services it orders
 - **Products and recurring services** with multi-currency prices, setup fees and billing cycles from monthly to every 3 years
 - **Free trials and plan changes**: per-product trials that convert to a paid invoice, and prorated upgrades, downgrades and cycle changes for staff and customers
+- **Support tickets** (optional): departments, email in via IMAP or piping, custom fields, secure attachments, internal notes and assignment
 - **Usage-based billing**: per-product meters (per unit, tiered or package pricing) billed in arrears on the renewal invoice
 - **Saved payment methods and autopay** with scheduled retries (Stripe and PayPal)
 - **Two-factor sign-in** (authenticator app and recovery codes) for staff and customers, see [`docs/two-factor.md`](docs/two-factor.md)

@@ -44,7 +44,7 @@ Public (no token): `GET /products`, `GET /products/{id-or-slug}`, `GET /openapi.
 
 A token without an ability list can do everything its owner can; a token with a list can only do what is listed (`403 forbidden` otherwise). The single list of valid abilities is `App\Support\Abilities` (also served by `GET /admin/abilities`); unknown abilities are rejected with `422` when a token is created. Abilities follow `<resource>.read` for `GET` and `<resource>.write` for changes.
 
-Customer tokens: `profile.read`, `profile.write`, `orders.write`, `services.read`, `services.write`, `invoices.read` (also invoice PDFs), `invoices.pay` (gateway checkout and paying with a saved method), `quotes.read` (also quote PDFs), `quotes.write`, `payment-methods.read`, `payment-methods.write`, `usage.read`.
+Customer tokens: `profile.read`, `profile.write`, `orders.write`, `services.read`, `services.write`, `invoices.read` (also invoice PDFs), `invoices.pay` (gateway checkout and paying with a saved method), `quotes.read` (also quote PDFs), `quotes.write`, `payment-methods.read`, `payment-methods.write`, `usage.read`, `tickets.read` (tickets, replies, attachment downloads, the department list), `tickets.write` (open, reply, close).
 
 Staff tokens:
 
@@ -68,6 +68,8 @@ Staff tokens:
 | `usage.read` / `usage.write` | product meters, service usage and usage records; create/change/delete meters, record and delete usage |
 | `activity.read` | the activity log |
 | `staff-users.read` / `staff-users.write` | staff accounts (administrators only): list, create, change role, activate/deactivate, password links, 2FA reset |
+| `tickets.read` / `tickets.write` | support tickets visible to the token's user, with internal notes and attachments; open for clients, reply, note, status, priority, custom fields, assign, claim, lock, transfer, close, reopen; delete (administrators only) |
+| `support.read` / `support.write` | support departments and ticket custom fields; create, change, delete (administrators only) |
 | `impersonation.write` | issue short-lived customer tokens |
 
 Some actions need an **administrator** on top of the ability, exactly like the admin screens: deleting clients, products, product groups, servers and tax rates; everything under settings, API tokens and plugin enable/disable/configure; creating, changing and deleting webhooks; everything under staff users. A staff (non-admin) token gets `403` there.
@@ -154,7 +156,64 @@ function verify(req, secret) {
 
 ### Events
 
-`client.created`, `invoice.created`, `invoice.paid`, `invoice.voided`, `payment.received`, `payment.refunded`, `quote.sent`, `quote.accepted`, `quote.declined`, `service.created`, `service.activated`, `service.suspended`, `service.unsuspended`, `service.cancelled`, `service.terminated`, `service.provisioning_failed`, `service.trial_started`, `service.trial_ending`, `service.trial_converted`, `service.plan_changed`, `service.plan_change_scheduled`, `usage.recorded`. Plugins may add more; `GET /admin/events` returns the live catalogue.
+`client.created`, `invoice.created`, `invoice.paid`, `invoice.voided`, `payment.received`, `payment.refunded`, `quote.sent`, `quote.accepted`, `quote.declined`, `service.created`, `service.activated`, `service.suspended`, `service.unsuspended`, `service.cancelled`, `service.terminated`, `service.provisioning_failed`, `service.trial_started`, `service.trial_ending`, `service.trial_converted`, `service.plan_changed`, `service.plan_change_scheduled`, `usage.recorded`, `ticket.created`, `ticket.replied`, `ticket.status_changed`, `ticket.assigned`. Plugins may add more; `GET /admin/events` returns the live catalogue.
+
+## Support tickets
+
+Support tickets are optional: while "Enable support tickets" is off (Settings → Support), every endpoint below answers `404` (after authentication and the ability check). Abilities: `tickets.read` / `tickets.write` for customers and staff, plus `support.read` / `support.write` for departments and custom fields (staff).
+
+### Customers (client API)
+
+| Endpoint | |
+| --- | --- |
+| `GET /ticket-departments` | departments listed to customers (active and public) with `fields`, the custom fields to show on the form. Staff-only fields are never included. `tickets.read` |
+| `GET /tickets` | your client's tickets, newest first; filter `status`. `tickets.read` |
+| `POST /tickets` | `department_id` (a listed department), `subject`, `message`, optional `service` (uuid of one of your services), `custom` (`{"key": "value"}`), attachments. `tickets.write` |
+| `GET /tickets/{uuid}` | the ticket with its `messages`: replies only. `tickets.read` |
+| `POST /tickets/{uuid}/replies` | `message` and/or attachments. A reply moves the ticket to `customer_reply` (and reopens a closed one). `tickets.write` |
+| `POST /tickets/{uuid}/close` | close your ticket. `tickets.write` |
+| `GET /tickets/{uuid}/attachments/{uuid}` | download an attachment of a reply. `tickets.read` |
+
+Customers only reach tickets of their own client (`404` otherwise). They never receive internal notes, system lines, the files attached to notes, or staff-only custom fields; sending a `custom` key that is not a customer-visible field of the department is a `422`. `custom` values are validated by type (text, textarea, select, checkbox, number, date) and required fields are enforced. Opening a ticket in an unlisted or inactive department is a `422`. A **locked** ticket cannot be replied to or closed by the customer (`422 domain_error`; `can_reply` says so up front).
+
+```bash
+curl -X POST $API/tickets -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"department_id": 1, "subject": "Site is down", "message": "Since this morning...", "custom": {"domain": "example.com"}}'
+```
+
+### Attachments
+
+Send files either as `multipart/form-data` (`files[]`, plus the other fields as form fields) or, for JSON-only clients, as `"attachments": [{"filename": "log.txt", "content_base64": "..."}]`. Both go through the same checks, and a single bad file refuses the whole request with `422` (`details.attachments`), nothing being stored:
+
+- at most `support.max_attachments` files (default 5) of at most `support.max_attachment_mb` MB each (default 10), non-empty; JSON files must be valid base64;
+- executables, scripts, web-page types (html, svg, xml) and dangerous extensions anywhere in the name (`x.php.jpg` too) are refused, judged by the file's real content as well as its name; Settings → Support can narrow the list further with an allow-list of extensions;
+- the type is detected from the content, never taken from the client; files are stored privately under random names and the original name is cleaned.
+
+Downloads are authenticated API calls (`download_url` in each attachment): always `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, a sandboxing `Content-Security-Policy`, `Cache-Control: private, no-store`; only safe types (png, jpeg, gif, webp, pdf, plain text) keep their own `Content-Type`, everything else is `application/octet-stream`.
+
+### Staff (admin API)
+
+Staff tokens see the tickets of the departments their user works in plus tickets assigned to them; administrators see everything. A ticket outside that is a `404`. Staff members' departments are set with `department_ids` on `POST/PATCH /admin/staff-users` (returned on every staff user), or with `staff_ids` on a department.
+
+| Endpoint | |
+| --- | --- |
+| `GET /admin/tickets` | filters `status` (comma list), `priority`, `department_id`, `assigned_to`, `client_id`, `q` (number, subject, requester), `mine=1`, `unassigned=1`; paginated. `tickets.read` |
+| `POST /admin/tickets` | open for a client: `client_id`, `department_id`, `subject`, `message`, optional `user_id` (a login of that client), `service_id`, `priority`, `custom` (staff-only fields allowed), `notify`, attachments. You must work in the department. The ticket starts as `answered` |
+| `GET /admin/tickets/{id}` | all `messages` (replies, notes with `kind: note`, system lines with `kind: event`), attachment metadata, custom fields |
+| `PATCH /admin/tickets/{id}` | `status`, `priority`, `custom_fields` (partial; `null` clears a field) |
+| `POST /admin/tickets/{id}/replies` | reply to the customer (emailed); optional `status` afterwards (default `answered`), attachments |
+| `POST /admin/tickets/{id}/notes` | internal note, attachments |
+| `POST /admin/tickets/{id}/assign` | `{"user_id": 5}` or `{"user_id": null}`; the assignee must be an administrator or work in the department (`422`) |
+| `POST /admin/tickets/{id}/claim`, `/lock`, `/unlock`, `/close`, `/reopen` | claim for yourself; lock (customer cannot reply or close); unlock; close; reopen (`422` when not closed) |
+| `POST /admin/tickets/{id}/transfer` | `{"department_id": 2}`; an assignee who is not in the new department is cleared |
+| `DELETE /admin/tickets/{id}` | administrators only |
+| `GET /admin/tickets/{id}/attachments/{uuid}` | download any attachment, note files included |
+| `/admin/ticket-departments` | `GET` (`support.read`, any staff token), `POST/PATCH/DELETE` (`support.write`, administrators only). Fields: `name`, `slug`, `description`, `sort`, `is_public` (listed to customers), `is_active`, `email`, `auto_reply`, `imap_enabled`, `imap_host`, `imap_port`, `imap_encryption` (`ssl`\|`starttls`\|`none`), `imap_validate_cert`, `imap_username`, `imap_password`, `imap_folder`, `imap_after` (`seen`\|`delete`), `staff_ids` (replaces the staff list). A department with tickets cannot be deleted (`422`) |
+| `/admin/ticket-fields` | `GET` (`support.read`), `POST/PATCH/DELETE` (`support.write`, administrators only). Fields: `key` (create only), `label`, `type` (`text`, `textarea`, `select`, `checkbox`, `number`, `date`), `department_id` (null: every department), `options` (select), `required`, `staff_only`, `help`, `sort`, `is_active` |
+
+The mailbox **password is write-only**: it is accepted as `imap_password` (blank keeps the stored one, `clear_imap_password: true` removes it) and never returned; responses carry `has_imap_password`. Mailbox connection details (`imap_*`, `staff_ids`) are only included when the token belongs to an administrator.
+
+Webhooks: `ticket.created`, `ticket.replied`, `ticket.status_changed`, `ticket.assigned` (see [Outbound webhooks](#outbound-webhooks)); internal notes never trigger one.
 
 ## Trials and plan changes
 
@@ -192,6 +251,7 @@ Everything the admin screens can do is available under `/api/v1/admin` with a st
 | Invoices | `/invoices` CRUD (drafts only for edit/delete), `GET /invoices/summary`, `GET /invoices/{id}/pdf`, `POST /invoices/{id}/issue\|resend\|void\|uncollectible`, `POST /invoices/{id}/payments` (manual payment). `pay_url` is the public link |
 | Quotes | `/quotes` CRUD, `GET /quotes/{id}/pdf`, `POST /quotes/{id}/send\|convert\|accept\|decline\|duplicate`. `view_url` is the public link |
 | Payments | `GET /payments`, `GET /payments/summary` (same filters; received/refunded/net per currency), `GET /payments/{id}`, `POST /payments/{id}/refund` (omit `amount` to refund the rest) |
+| Support tickets | `/tickets`, `/ticket-departments`, `/ticket-fields`: see [Support tickets](#support-tickets) |
 | Tax rates | `/tax-rates` CRUD |
 | Saved payment methods | `GET /clients/{id}/payment-methods`, `DELETE /clients/{id}/payment-methods/{uuid}`, `GET /autopay/attempts` |
 | Usage billing | `/products/{id}/meters` CRUD, `GET/POST /services/{id}/usage`, `DELETE /services/{id}/usage/{recordId}` |

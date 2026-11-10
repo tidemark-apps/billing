@@ -20,7 +20,7 @@
             @if ($client->phone)<dt>Phone</dt><dd>{{ $client->phone }}</dd>@endif
             <dt>Currency</dt><dd>{{ $client->currency }}</dd>
             @if ($client->tax_id)<dt>Tax ID</dt><dd>{{ $client->tax_id }}</dd>@endif
-            <dt>Status</dt><dd><span class="pill {{ $client->status === 'active' ? 'good' : '' }}">{{ ucfirst($client->status) }}</span></dd>
+            <dt>Status</dt><dd><span class="pill {{ $client->status === 'active' ? 'good' : '' }}">{{ ucfirst($client->status) }}</span>@if ($client->is_internal) <span class="pill brand" title="Services are free and this account is left out of reports">Internal</span>@endif</dd>
             <dt>Client since</dt><dd>{{ $client->created_at->format('j M Y') }}</dd>
         </dl></x-card>
         <x-card title="Address">@forelse ($client->addressLines() as $l)<div>{{ $l }}</div>@empty<span class="muted">No address on file.</span>@endforelse</x-card>

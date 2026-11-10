@@ -1,0 +1,10 @@
+From: Hans HTML <hans@customer.test>
+To: sales@example.test
+Subject: Fwd: Re: Layout problem
+Message-ID: <html-only-1@customer.test>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<html><head><style>p { color: red; }</style><script>alert('x')</script></head>
+<body><p>Hello &amp; welcome,</p><p>Line one<br>Line two &lt;ok&gt;</p><div>Bye</div></body></html>

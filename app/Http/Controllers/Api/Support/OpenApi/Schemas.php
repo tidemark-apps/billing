@@ -8,7 +8,7 @@ class Schemas
     /** @return array<string, array<string, mixed>> */
     public static function all(): array
     {
-        return self::base() + self::added() + self::billingExtensions();
+        return self::base() + self::added() + self::billingExtensions() + self::support();
     }
 
     /** Schemas of the first API release (customer API and the original admin resources). @return array<string, array<string, mixed>> */
@@ -62,6 +62,7 @@ class Schemas
                     'tax_id' => ['type' => ['string', 'null']],
                     'currency' => ['type' => 'string'],
                     'status' => ['type' => 'string'],
+                    'is_internal' => ['type' => 'boolean', 'description' => 'Internal accounts (your own team, test customers) cost nothing and are left out of revenue and other report figures'],
                     'notes' => ['type' => ['string', 'null'], 'description' => 'Staff tokens only'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
@@ -390,6 +391,7 @@ class Schemas
                     'tax_id' => ['type' => 'string'],
                     'currency' => ['type' => 'string'],
                     'status' => ['type' => 'string', 'enum' => ['active', 'inactive', 'closed']],
+                    'is_internal' => ['type' => 'boolean', 'description' => 'Mark as an internal account: every service becomes free and the client is excluded from reports. Turning it off restores the normal prices.'],
                     'notes' => ['type' => 'string'],
                     'password' => ['type' => 'string', 'description' => 'If set, a portal login is created (create only)'],
                 ],
@@ -479,10 +481,10 @@ class Schemas
             'StaffMe' => ['allOf' => [Dsl::ref('User'), Dsl::obj(['token' => Dsl::obj(['id' => 'integer', 'name' => 'string', 'abilities' => '?string[]', 'full_access' => 'boolean', 'expires_at' => '?datetime'])])]],
             'StaffUser' => Dsl::obj([
                 'id' => 'integer', 'name' => 'string', 'email' => 'string', 'role' => 'admin|staff', 'is_active' => 'boolean',
-                'two_factor_enabled' => 'boolean', 'last_login_at' => '?datetime', 'created_at' => '?datetime',
+                'department_ids' => ['integer[]', 'Support departments the member works in'], 'two_factor_enabled' => 'boolean', 'last_login_at' => '?datetime', 'created_at' => '?datetime',
             ]),
-            'StaffUserCreateInput' => Dsl::obj(['name!' => 'string', 'email!' => 'email', 'role!' => 'admin|staff', 'password' => ['string', 'At least 8 characters. Required unless send_link is true'], 'send_link' => ['boolean', 'Email a link to choose a password instead']]),
-            'StaffUserInput' => Dsl::obj(['name' => 'string', 'email' => 'email', 'role' => 'admin|staff']),
+            'StaffUserCreateInput' => Dsl::obj(['name!' => 'string', 'email!' => 'email', 'role!' => 'admin|staff', 'password' => ['string', 'At least 8 characters. Required unless send_link is true'], 'send_link' => ['boolean', 'Email a link to choose a password instead'], 'department_ids' => ['integer[]', 'Support departments the member works in']]),
+            'StaffUserInput' => Dsl::obj(['name' => 'string', 'email' => 'email', 'role' => 'admin|staff', 'department_ids' => ['integer[]', 'Replaces the support departments the member works in']]),
             'UserInput' => Dsl::obj(['name' => 'string', 'email' => 'email']),
             'UserCreateInput' => Dsl::obj(['name!' => 'string', 'email!' => 'email', 'password!' => ['string', 'At least 8 characters']]),
             'PasswordInput' => Dsl::obj(['password!' => ['string', 'At least 8 characters. The login\'s API tokens are revoked.']]),
@@ -601,6 +603,83 @@ class Schemas
             'UsageSummary' => Dsl::obj([
                 'period_start' => '?date', 'period_end' => '?date', 'currency' => 'string', 'estimated_charge' => ['Money', 'Total before tax'], 'meters' => ['UsageSummaryMeter[]', 'Only meters that have unbilled usage'],
             ], 'Unbilled usage of the current period. Billed in arrears on the renewal invoice.'),
+        ];
+    }
+
+    /** Support tickets, departments and custom fields. @return array<string, array<string, mixed>> */
+    private static function support(): array
+    {
+        $status = 'open|answered|customer_reply|on_hold|closed';
+        $priority = 'low|normal|high|urgent';
+        $files = [
+            'files' => ['string[]', 'multipart/form-data only: the files, as files[]'],
+            'attachments' => ['TicketAttachmentInput[]', 'JSON alternative to files[]: base64-encoded files'],
+        ];
+
+        return [
+            'TicketAttachment' => Dsl::obj([
+                'uuid' => 'uuid', 'filename' => 'string', 'mime' => ['string', 'Detected from the content, not the client-supplied type'], 'size' => 'integer', 'sha256' => 'string',
+                'download_url' => ['uri', 'Authenticated download (bearer token). Always an attachment with nosniff and a sandboxing CSP'], 'created_at' => 'datetime',
+            ]),
+            'TicketAttachmentInput' => Dsl::obj(['filename!' => 'string', 'content_base64!' => ['string', 'Standard base64 of the file bytes']]),
+            'TicketMessage' => Dsl::obj([
+                'id' => 'integer', 'kind' => ['reply|note|event', 'Customers only ever receive reply'], 'author_type' => 'customer|staff|system', 'author_name' => '?string',
+                'author_email' => ['?string', 'Staff tokens only'], 'user_id' => ['?integer', 'Staff tokens only'], 'source' => ['string', 'Staff tokens only: portal, email, admin, api, system'],
+                'body' => 'string', 'attachments' => 'TicketAttachment[]', 'created_at' => 'datetime',
+            ]),
+            'Ticket' => Dsl::obj([
+                'id' => ['integer', 'Staff tokens only. Customers address tickets by uuid'], 'uuid' => 'uuid', 'number' => 'string', 'subject' => 'string', 'status' => $status, 'status_label' => 'string',
+                'priority' => $priority, 'is_locked' => ['boolean', 'A locked ticket cannot be replied to or closed by the customer'], 'can_reply' => ['boolean', 'Customer tokens only'],
+                'department' => ['?object', 'id, name, slug'], 'service_uuid' => '?uuid',
+                'client_id' => ['?integer', 'Staff tokens only'], 'user_id' => ['?integer', 'Staff tokens only'], 'service_id' => ['?integer', 'Staff tokens only'],
+                'requester_name' => ['string', 'Staff tokens only'], 'requester_email' => ['string', 'Staff tokens only'], 'assigned_to' => ['?integer', 'Staff tokens only'],
+                'assignee' => ['?object', 'Staff tokens only: id, name'], 'source' => ['string', 'Staff tokens only: portal, email, admin or api'],
+                'custom_fields' => ['object', 'key => answer. Customer tokens never receive staff-only fields'],
+                'last_reply_at' => '?datetime', 'last_reply_by' => ['?string', 'customer or staff'], 'closed_at' => '?datetime',
+                'messages' => ['TicketMessage[]', 'Only on GET /tickets/{id}, and on create. Customers: replies only. Staff: replies, internal notes (kind note) and system lines (kind event)'],
+                'created_at' => 'datetime',
+            ]),
+            'TicketInput' => Dsl::obj([
+                'department_id!' => ['integer', 'A listed (public, active) department: GET /ticket-departments'], 'subject!' => 'string', 'message!' => 'string',
+                'service' => ['uuid', 'One of your services'], 'custom' => ['object', 'key => answer for the department\'s fields (see GET /ticket-departments). Staff-only and unknown keys are a 422'],
+            ] + $files, 'JSON, or multipart/form-data with files[] for attachments.'),
+            'TicketReplyInput' => Dsl::obj(['message' => ['string', 'Required unless files are attached']] + $files, 'JSON, or multipart/form-data with files[].'),
+            'AdminTicketInput' => Dsl::obj([
+                'client_id!' => 'integer', 'user_id' => ['integer', 'A portal login of that client; the requester. Defaults to the client\'s own e-mail address'], 'department_id!' => 'integer',
+                'subject!' => 'string', 'message!' => 'string', 'service_id' => ['integer', 'A service of that client'], 'priority' => $priority,
+                'custom' => ['object', 'key => answer; staff-only fields included'], 'notify' => ['boolean', 'E-mail the customer (default true)'],
+            ] + $files, 'The ticket starts as answered: the first message is the staff member\'s. JSON, or multipart/form-data with files[].'),
+            'AdminTicketReplyInput' => Dsl::obj(['message' => ['string', 'Required unless files are attached'], 'status' => [$status, 'Status afterwards (default answered)']] + $files),
+            'TicketNoteInput' => Dsl::obj(['message!' => 'string'] + $files),
+            'TicketUpdateInput' => Dsl::obj(['status' => $status, 'priority' => $priority, 'custom_fields' => ['object', 'key => answer; only the keys sent change, null or "" clears one']]),
+            'TicketAssignInput' => Dsl::obj(['user_id!' => ['?integer', 'A staff member who works in the ticket\'s department, or null to unassign']]),
+            'TicketTransferInput' => Dsl::obj(['department_id!' => 'integer']),
+            'TicketField' => Dsl::obj([
+                'id' => 'integer', 'department_id' => ['?integer', 'Staff tokens only. null: applies to every department'], 'key' => 'string', 'label' => 'string',
+                'type' => 'text|textarea|select|checkbox|number|date', 'options' => ['string[]', 'Choices of a select field'], 'required' => 'boolean',
+                'staff_only' => ['boolean', 'Staff tokens only. Staff-only fields are never shown to customers'], 'help' => '?string', 'sort' => 'integer', 'is_active' => ['boolean', 'Staff tokens only'],
+            ]),
+            'TicketFieldInput' => Dsl::obj([
+                'key' => ['string', 'Create only; lowercase letters, digits and underscores; cannot change later'], 'label' => 'string', 'type' => 'text|textarea|select|checkbox|number|date',
+                'department_id' => ['?integer', 'null for every department'], 'options' => ['string[]', 'Required for select; no commas'], 'required' => 'boolean', 'staff_only' => 'boolean',
+                'help' => 'string', 'sort' => 'integer', 'is_active' => 'boolean',
+            ]),
+            'Department' => Dsl::obj([
+                'id' => 'integer', 'name' => 'string', 'slug' => 'string', 'description' => '?string', 'sort' => 'integer',
+                'is_public' => ['boolean', 'Staff tokens only'], 'is_active' => ['boolean', 'Staff tokens only'], 'email' => ['?string', 'Staff tokens only'], 'auto_reply' => ['boolean', 'Staff tokens only'],
+                'imap_enabled' => ['boolean', 'Administrators only (this and the other imap_* / staff_ids fields)'], 'imap_host' => '?string', 'imap_port' => 'integer', 'imap_encryption' => 'ssl|starttls|none',
+                'imap_validate_cert' => 'boolean', 'imap_username' => '?string',
+                'has_imap_password' => ['boolean', 'The mailbox password is write-only; this says whether one is stored'], 'imap_folder' => 'string', 'imap_after' => 'seen|delete',
+                'imap_checked_at' => '?datetime', 'imap_error' => '?string', 'staff_ids' => ['integer[]', 'Staff who work in this department'],
+                'fields' => ['TicketField[]', 'Customer tokens only: the fields the customer can fill in when opening a ticket'], 'created_at' => ['datetime', 'Staff tokens only'],
+            ], 'A support department. The mailbox password is never returned.'),
+            'DepartmentInput' => Dsl::obj([
+                'name' => 'string', 'slug' => ['string', 'Generated from the name when omitted'], 'description' => 'string', 'sort' => 'integer',
+                'is_public' => ['boolean', 'Listed to customers on the new-ticket form'], 'is_active' => 'boolean', 'email' => ['?string', 'The address mail for this department arrives at'], 'auto_reply' => 'boolean',
+                'imap_enabled' => 'boolean', 'imap_host' => 'string', 'imap_port' => 'integer', 'imap_encryption' => 'ssl|starttls|none', 'imap_validate_cert' => 'boolean', 'imap_username' => 'string',
+                'imap_password' => ['string', 'Write-only. Omit or send blank to keep the stored one'], 'clear_imap_password' => ['boolean', 'Remove the stored mailbox password'],
+                'imap_folder' => 'string', 'imap_after' => 'seen|delete', 'staff_ids' => ['integer[]', 'Replaces the department\'s staff list'],
+            ]),
         ];
     }
 }

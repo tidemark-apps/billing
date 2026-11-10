@@ -50,19 +50,19 @@ class OrderService
                 'label' => $options['label'] ?? null,
                 'billing_cycle' => $cycle,
                 'currency' => $price->currency,
-                'amount' => $price->amount,
+                ...InternalAccounts::pricing($client, $price->amount),
                 'config' => $options['config'] ?? null,
             ]);
 
             $items = [[
                 'kind' => 'product',
                 'description' => $product->name.($cycle->isRecurring() ? ' ('.$cycle->label().')' : '').($service->label ? ' — '.$service->label : ''),
-                'unit_price' => $price->amount,
+                'unit_price' => $service->amount,
                 'taxable' => ! $product->tax_exempt,
                 'service_id' => $service->id,
                 'product_id' => $product->id,
             ]];
-            if ($price->setup_fee > 0) {
+            if ($price->setup_fee > 0 && ! InternalAccounts::is($client)) {
                 $items[] = ['kind' => 'setup', 'description' => $product->name.' — setup fee', 'unit_price' => $price->setup_fee, 'taxable' => ! $product->tax_exempt, 'service_id' => $service->id, 'product_id' => $product->id];
             }
 
@@ -94,7 +94,7 @@ class OrderService
             'label' => $options['label'] ?? null,
             'billing_cycle' => $cycle,
             'currency' => $price->currency,
-            'amount' => $price->amount,
+            ...InternalAccounts::pricing($client, $price->amount),
             'config' => $options['config'] ?? null,
             'trial_ends_at' => $ends,
             'next_due_date' => $ends,

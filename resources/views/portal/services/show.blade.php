@@ -1,7 +1,8 @@
 @extends('layouts.app', ['area' => 'portal'])
 @section('title', $service->title())
 @section('content')
-<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif</x-page-head>
+<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif
+    @if (\App\Services\TicketService::enabled())<a class="btn" href="{{ route('portal.tickets.create', ['service' => $service->uuid]) }}"><x-icon name="life-buoy" :size="15" /> Get help</a>@endif</x-page-head>
 @if ($service->cancel_at_period_end)<div class="notice warn"><x-icon name="triangle-alert" :size="16" /><div>This service is set to cancel on {{ $service->next_due_date?->format('j M Y') }}.</div></div>@endif
 @if ($service->onTrial())
 <div class="notice"><x-icon name="info" :size="16" /><div><b>Free trial until {{ $service->trial_ends_at->format('j M Y') }}.</b> After that it is {{ money($service->amount, $service->currency) }} {{ $service->billing_cycle->suffix() }}. You can cancel any time before then and you will not be charged.</div></div>

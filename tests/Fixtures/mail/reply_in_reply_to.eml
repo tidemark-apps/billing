@@ -1,0 +1,14 @@
+From: Jane Customer <jane@customer.test>
+To: sales@example.test
+Subject: Re: Something else entirely
+Message-ID: <reply-irt-1@customer.test>
+In-Reply-To: <orig-1@example.test>
+References: <orig-1@example.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+Here is the extra detail you asked for.
+
+On Tue, 10 Nov 2026 at 10:05, Support <sales@example.test> wrote:
+> ##- Please type your reply above this line -##
+> Thanks for getting in touch.

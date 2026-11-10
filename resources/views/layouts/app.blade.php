@@ -56,7 +56,7 @@
                 @foreach ($nav as $group => $items)
                     <div class="side-grp">{{ $group }}</div>
                     @foreach ($items as $i)
-                        <a class="side-link {{ $i['active'] ? 'on' : '' }}" href="{{ $i['url'] }}" title="{{ $i['label'] }}" @if($i['active']) aria-current="page" @endif><x-icon :name="$i['icon']" :size="16" /><span>{{ $i['label'] }}</span></a>
+                        <a class="side-link {{ $i['active'] ? 'on' : '' }}" href="{{ $i['url'] }}" title="{{ $i['label'] }}" @if($i['active']) aria-current="page" @endif><x-icon :name="$i['icon']" :size="16" /><span>{{ $i['label'] }}</span>@if (! empty($i['badge']))<span class="pill warn" style="margin-left:auto">{{ $i['badge'] }}</span>@endif</a>
                     @endforeach
                 @endforeach
             </nav>

@@ -16,7 +16,7 @@
         <tr class="click"><td data-label="Client"><a href="{{ route('admin.clients.show', $c) }}"><b>{{ $c->displayName() }}</b></a>@if($c->company_name)<div class="muted small">{{ $c->name }}</div>@endif</td>
             <td data-label="Email">{{ $c->email }}</td><td data-label="Country">{{ \App\Support\Countries::name($c->country) }}</td>
             <td class="right" data-label="Services">{{ $c->live_services_count }}</td>
-            <td data-label="Status"><span class="pill {{ $c->status === 'active' ? 'good' : '' }}">{{ ucfirst($c->status) }}</span></td>
+            <td data-label="Status"><span class="pill {{ $c->status === 'active' ? 'good' : '' }}">{{ ucfirst($c->status) }}</span>@if ($c->is_internal) <span class="pill brand">Internal</span>@endif</td>
             <td data-label="Since">{{ $c->created_at->format('j M Y') }}</td></tr>
         @endforeach
     </tbody></table>

@@ -38,6 +38,16 @@ return [
             'report' => false,
         ],
 
+        // Support ticket attachments: private, never served by the framework, only through the authorised download route.
+        'tickets' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/tickets'),
+            'serve' => false,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

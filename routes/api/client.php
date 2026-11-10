@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Client\PaymentMethodController;
 use App\Http\Controllers\Api\Client\PdfController;
 use App\Http\Controllers\Api\Client\QuoteController;
 use App\Http\Controllers\Api\Client\ServiceController;
+use App\Http\Controllers\Api\Client\TicketController;
 use App\Http\Controllers\Api\Client\UsageController;
 use Illuminate\Support\Facades\Route;
 
@@ -74,5 +75,18 @@ Route::middleware(['auth.api:customer', 'throttle:api'])->group(function () {
     Route::middleware('ability:quotes.write')->group(function () {
         Route::post('/quotes/{quote}/accept', [QuoteController::class, 'accept'])->name('quotes.accept');
         Route::post('/quotes/{quote}/decline', [QuoteController::class, 'decline'])->name('quotes.decline');
+    });
+
+    // Support tickets (a plain 404 while support is switched off in Settings → Support)
+    Route::middleware(['ability:tickets.read', 'support'])->group(function () {
+        Route::get('/ticket-departments', [TicketController::class, 'departments'])->name('ticket-departments.index');
+        Route::get('/tickets', [TicketController::class, 'index'])->name('tickets.index');
+        Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
+        Route::get('/tickets/{ticket}/attachments/{attachment}', [TicketController::class, 'download'])->name('tickets.attachments.download');
+    });
+    Route::middleware(['ability:tickets.write', 'support'])->group(function () {
+        Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store');
+        Route::post('/tickets/{ticket}/replies', [TicketController::class, 'reply'])->name('tickets.reply');
+        Route::post('/tickets/{ticket}/close', [TicketController::class, 'close'])->name('tickets.close');
     });
 });

@@ -82,7 +82,7 @@ class BillingRunner
                         'period_start' => $start->toDateString(),
                         'period_end' => $end->toDateString(),
                     ];
-                    if ($trial && ($setup = $s->product?->priceFor($s->billing_cycle, $s->currency)?->setup_fee) > 0) {
+                    if ($trial && ! InternalAccounts::is($s->client) && ($setup = $s->product?->priceFor($s->billing_cycle, $s->currency)?->setup_fee) > 0) {
                         $items[] = ['kind' => 'setup', 'description' => ($s->product?->name ?? $s->title()).' — setup fee', 'unit_price' => $setup, 'taxable' => ! ($s->product?->tax_exempt ?? false), 'service_id' => $s->id, 'product_id' => $s->product_id];
                     }
                     if ($this->isMetered($s)) {

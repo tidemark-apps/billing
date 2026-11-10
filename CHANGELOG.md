@@ -4,6 +4,17 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-12
+
+### Added
+- Internal accounts. Mark a client as internal (your own team, test customers, accounts on the house) and every one of their services becomes free, new orders and plan changes are free too, and they are left out of revenue, outstanding, overdue and other figures on the dashboard, payment and invoice totals and the API. Their data is kept as is, and turning the flag off puts the normal prices back. See `docs/internal-accounts.md`.
+- Optional support tickets (off until you switch them on in Settings → Support). Customers open and follow tickets in the client area, optionally tied to one of their services, with attachments and the extra fields you define per department. Staff get a queue with assignment, status, priority, locking, closing, moving between departments and internal notes the customer never sees.
+- Departments, each either listed on the ticket form or unlisted (reachable by direct link or by email), with staff assigned to one department, several or none. Staff only see tickets in their departments and ones assigned to them; admins see everything.
+- Email in: each department can have one address, pulled from an IMAP mailbox every minute or piped in from your mail server (`php artisan tickets:pipe`). Replies thread onto the right ticket and are only accepted from the ticket's own customer, so quoting a ticket number can't inject a message.
+- Custom ticket fields (text, multi-line, choice, yes/no, number, date), for every department or just one, optionally staff-only.
+- Secure attachments: stored privately under random names, type-checked by content, executables, scripts, HTML and SVG refused, size and count limits, and served only to people who can see the ticket as a forced download. See `docs/support-tickets.md`.
+- Tickets are in the REST API (customer and staff endpoints, departments and fields) and fire `ticket.created`, `ticket.replied`, `ticket.status_changed` and `ticket.assigned` webhooks.
+
 ## [0.2.0] - 2026-11-11
 
 ### Added

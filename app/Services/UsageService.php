@@ -233,7 +233,8 @@ class UsageService
     public function collect(Service $service, CarbonInterface $cutoff, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): array
     {
         $includeZero = filter_var(Settings::get('billing.usage_zero_lines', false), FILTER_VALIDATE_BOOLEAN);
-        $service->loadMissing('product');
+        $service->loadMissing('product', 'client');
+        $internal = InternalAccounts::is($service->client); // internal accounts are not charged for usage; the records are still marked billed
         $items = [];
         $claims = [];
         $label = $periodStart && $periodEnd ? ' — '.$periodStart->format('j M Y').' to '.$periodEnd->format('j M Y') : '';
@@ -244,13 +245,13 @@ class UsageService
             }
             $charge = $this->cost($meter, $agg['quantity'], $service->currency, $agg['records']);
             $claim = ['meter_id' => $meter->id, 'max_id' => $agg['max_id'], 'cutoff' => $cutoff->copy(), 'item' => null];
-            if (! $charge->isZero() || $includeZero) {
+            if ((! $charge->isZero() && ! $internal) || $includeZero) {
                 $claim['item'] = count($items);
                 $items[] = [
                     'kind' => 'usage',
                     'description' => $service->title().' · '.$meter->name.$label.' ('.$charge->describe().')',
                     'quantity' => 1,
-                    'unit_price' => $charge->amount,
+                    'unit_price' => $internal ? 0 : $charge->amount,
                     'taxable' => ! ($service->product?->tax_exempt ?? false),
                     'service_id' => $service->id,
                     'product_id' => $service->product_id,

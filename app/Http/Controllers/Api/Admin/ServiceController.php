@@ -16,6 +16,7 @@ use App\Models\Client;
 use App\Models\Product;
 use App\Models\Service;
 use App\Services\BillingRunner;
+use App\Services\InternalAccounts;
 use App\Services\OrderService;
 use App\Services\ProvisioningService;
 use App\Services\UsageService;
@@ -88,7 +89,7 @@ class ServiceController extends ApiController
             'label' => $data['label'] ?? null,
             'billing_cycle' => $cycle,
             'currency' => $price?->currency ?? $client->currency,
-            'amount' => $data['amount'] ?? $price->amount,
+            ...InternalAccounts::pricing($client, (int) ($data['amount'] ?? $price->amount)),
             'next_due_date' => $data['next_due_date'] ?? null,
         ]);
         event(new ServiceCreated($service));
@@ -121,7 +122,12 @@ class ServiceController extends ApiController
             'server_id' => ['nullable', 'integer', 'exists:servers,id'],
         ]);
         $billingChanged = (isset($data['amount']) && $data['amount'] !== $service->amount) || (isset($data['billing_cycle']) && $data['billing_cycle'] !== $service->billing_cycle->value);
-        $service->update($data);
+        $fields = $data;
+        if (isset($data['amount'])) {
+            unset($fields['amount']);
+            $fields += InternalAccounts::reprice($service, (int) $data['amount']);
+        }
+        $service->update($fields);
         $this->audit('service.updated', $service);
         if ($billingChanged) {
             $this->provisioning->changePackage($service);

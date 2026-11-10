@@ -9,6 +9,7 @@ use App\Events\ClientCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\User;
+use App\Services\InternalAccounts;
 use App\Services\Registration;
 use App\Support\Activity;
 use App\Support\Countries;
@@ -77,7 +78,11 @@ class ClientController extends Controller
 
     public function update(Request $request, Client $client): RedirectResponse
     {
-        $client->update($request->validate($this->rules()));
+        $data = $request->validate($this->rules());
+        $internal = $request->boolean('is_internal');
+        unset($data['is_internal']);
+        $client->update($data);
+        app(InternalAccounts::class)->set($client, $internal, $request->user());
         Activity::log('client.updated', $client);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client saved.');
@@ -126,6 +131,7 @@ class ClientController extends Controller
             'tax_id' => ['nullable', 'string', 'max:64'],
             'currency' => ['required', 'string', 'size:3', Rule::in(array_keys(Money::currencies()))],
             'status' => ['required', Rule::in(['active', 'inactive', 'closed'])],
+            'is_internal' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ];
     }

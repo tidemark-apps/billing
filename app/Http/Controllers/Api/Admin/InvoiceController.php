@@ -45,7 +45,7 @@ class InvoiceController extends ApiController
     /** What is owed, per currency: open invoices (outstanding) and the overdue part of them. */
     public function summary()
     {
-        $due = fn ($q) => $q->selectRaw('currency, count(*) as invoices, sum(total - amount_paid) as due')->groupBy('currency')->get()
+        $due = fn ($q) => $q->external()->selectRaw('currency, count(*) as invoices, sum(total - amount_paid) as due')->groupBy('currency')->get()
             ->map(fn ($r) => ['currency' => $r->currency, 'invoices' => (int) $r->invoices, 'amount' => ['amount' => (int) $r->due, 'currency' => $r->currency, 'formatted' => Money::format((int) $r->due, $r->currency)]])->values();
 
         return response()->json(['data' => [

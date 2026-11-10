@@ -17,10 +17,10 @@ Route::get('/events', [MetaController::class, 'events'])->middleware(['ability:w
 // ---- settings (administrators) ------------------------------------------------------------------------------------
 Route::middleware(['ability:settings.read', BindAfterAuth::class])->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::get('/settings/{section}', [SettingsController::class, 'show'])->where('section', 'general|billing|email|autopay|security|payments|system')->name('settings.show');
+    Route::get('/settings/{section}', [SettingsController::class, 'show'])->where('section', 'general|billing|email|autopay|security|payments|support|system')->name('settings.show');
 });
 Route::middleware(['ability:settings.write', BindAfterAuth::class])->group(function () {
-    Route::put('/settings/{section}', [SettingsController::class, 'update'])->where('section', 'general|billing|email|autopay|security|payments')->name('settings.update');
+    Route::put('/settings/{section}', [SettingsController::class, 'update'])->where('section', 'general|billing|email|autopay|security|payments|support')->name('settings.update');
     Route::post('/settings/email/test', [SettingsController::class, 'testEmail'])->name('settings.email.test');
     Route::post('/settings/system/cron-token', [SettingsController::class, 'regenerateCronToken'])->name('settings.cron-token');
     Route::post('/settings/system/run', [SettingsController::class, 'runBilling'])->name('settings.run');

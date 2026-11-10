@@ -13,7 +13,12 @@
     <x-stat label="Active services" :value="$activeServices" icon="boxes" />
     <x-stat label="New clients (30d)" :value="$newClients" icon="users" />
 </div>
-<x-card title="Revenue, last 12 months">
+@if ($ticketsAwaiting !== null)
+<a href="{{ route('admin.tickets.index', ['tab' => 'awaiting']) }}" style="text-decoration:none;display:block"><x-card>
+    <div class="row spread"><div class="row"><x-icon name="life-buoy" :size="18" /><b>Tickets awaiting reply</b></div><span class="pill {{ $ticketsAwaiting ? 'warn' : 'good' }}">{{ $ticketsAwaiting }}</span></div>
+</x-card></a>
+@endif
+<x-card title="Revenue, last 12 months (internal accounts excluded)">
     <svg viewBox="0 0 {{ 12 * ($bw + $gap) }} {{ $h + 24 }}" width="100%" role="img" aria-label="Monthly revenue in {{ $currency }}" style="max-height:220px">
         @foreach ($months as $i => $m)
             @php($bh = $m['value'] > 0 ? max(2, (int) round($m['value'] / $max * $h)) : 2)

@@ -1,0 +1,18 @@
+Return-Path: <jane@customer.test>
+Delivered-To: sales@example.test
+Received: from mail.customer.test by mx.example.test; Tue, 10 Nov 2026 10:00:00 +0000
+From: "Jane Customer" <Jane@Customer.test>
+To: Sales <sales@example.test>
+Subject: =?UTF-8?Q?Can_you_help_with_my_invoice=3F?=
+Message-ID: <new-plain-1@customer.test>
+Date: Tue, 10 Nov 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hello,
+
+My invoice looks wrong. Could you take a look?
+
+Thanks,
+Jane

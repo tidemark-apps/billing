@@ -6,6 +6,7 @@ use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -49,6 +50,12 @@ class User extends Authenticatable
     public function twoFactorDevices(): HasMany
     {
         return $this->hasMany(TwoFactorDevice::class);
+    }
+
+    /** Support departments this staff member works in. */
+    public function departments(): BelongsToMany
+    {
+        return $this->belongsToMany(Department::class, 'department_user', 'user_id', 'department_id');
     }
 
     public function hasTwoFactor(): bool

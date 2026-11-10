@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\User;
 use App\Services\StaffAccounts;
 use App\Support\Activity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
@@ -22,7 +24,7 @@ class StaffController extends Controller
 
     public function index(Request $request)
     {
-        $users = User::whereIn('role', [Role::Admin, Role::Staff])->orderByDesc('is_active')->orderBy('name')->get();
+        $users = User::whereIn('role', [Role::Admin, Role::Staff])->orderByDesc('is_active')->orderBy('name')->with('departments')->get();
         $lastAdmin = $users->first(fn (User $u) => $this->staff->isLastActiveAdmin($u));
 
         return view('admin.staff.index', ['users' => $users, 'lastAdminId' => $lastAdmin?->id]);
@@ -30,7 +32,7 @@ class StaffController extends Controller
 
     public function create()
     {
-        return view('admin.staff.form', ['staff' => new User(['role' => Role::Staff]), 'lastAdmin' => false]);
+        return view('admin.staff.form', ['staff' => new User(['role' => Role::Staff]), 'lastAdmin' => false, 'departments' => Department::orderBy('sort')->orderBy('name')->get(), 'selected' => []]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -41,9 +43,12 @@ class StaffController extends Controller
             'role' => ['required', Rule::in(['admin', 'staff'])],
             'password_mode' => ['required', Rule::in(['set', 'link'])],
             'password' => ['required_if:password_mode,set', 'nullable', PasswordRule::min(8)],
+            'departments' => ['nullable', 'array'],
+            'departments.*' => ['integer', 'exists:ticket_departments,id'],
         ]);
         try {
-            $user = $this->staff->create($data, $data['password_mode'] === 'link');
+            $user = $this->staff->create(Arr::except($data, ['departments']), $data['password_mode'] === 'link');
+            $user->departments()->sync($data['departments'] ?? []);
         } catch (\DomainException $e) {
             return back()->withInput($request->except('password'))->with('error', $e->getMessage());
         }
@@ -55,7 +60,7 @@ class StaffController extends Controller
     {
         $this->member($user);
 
-        return view('admin.staff.form', ['staff' => $user, 'lastAdmin' => $this->staff->isLastActiveAdmin($user)]);
+        return view('admin.staff.form', ['staff' => $user, 'lastAdmin' => $this->staff->isLastActiveAdmin($user), 'departments' => Department::orderBy('sort')->orderBy('name')->get(), 'selected' => $user->departments()->pluck('ticket_departments.id')->all()]);
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -65,9 +70,12 @@ class StaffController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', Rule::in(['admin', 'staff'])],
+            'departments' => ['nullable', 'array'],
+            'departments.*' => ['integer', 'exists:ticket_departments,id'],
         ]);
         try {
-            $this->staff->update($user, $data);
+            $this->staff->update($user, Arr::except($data, ['departments']));
+            $user->departments()->sync($data['departments'] ?? []);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }

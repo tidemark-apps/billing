@@ -29,6 +29,8 @@ final class Abilities
         'payment-methods.read' => 'List your saved payment methods (tokens are never returned)',
         'payment-methods.write' => 'Add, remove and change saved payment methods and automatic payment',
         'usage.read' => 'Read the metered usage of your services',
+        'tickets.read' => 'List and read your support tickets and replies, download reply attachments, list the departments you can open tickets in',
+        'tickets.write' => 'Open support tickets, reply to them and close them',
     ];
 
     /** Abilities of staff tokens (/admin API) => description. */
@@ -66,6 +68,10 @@ final class Abilities
         'activity.read' => 'Read the activity log',
         'staff-users.read' => 'Read staff accounts (administrators only)',
         'staff-users.write' => 'Create and edit staff accounts, activate/deactivate them, send password links, reset their two-factor authentication (administrators only)',
+        'tickets.read' => 'Read support tickets visible to the token\'s user (their departments and tickets assigned to them; administrators see all), including internal notes and attachments',
+        'tickets.write' => 'Open tickets for clients, reply, add internal notes, change status, priority and custom fields, assign, lock, transfer; delete tickets (administrators only)',
+        'support.read' => 'Read support departments and ticket custom fields (mailbox connection details and staff lists for administrators only; the mailbox password is never returned)',
+        'support.write' => 'Create, update and delete support departments and ticket custom fields (administrators only)',
         'impersonation.write' => 'Issue short-lived tokens that act as a customer',
     ];
 

@@ -27,6 +27,7 @@ class ClientResource extends JsonResource
             'tax_id' => $this->tax_id,
             'currency' => $this->currency,
             'status' => $this->status,
+            'is_internal' => (bool) $this->is_internal,
             'notes' => $this->when($this->isStaffRequest($request), $this->notes),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

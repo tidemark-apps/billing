@@ -13,6 +13,18 @@
         </div>
         @if ($lastAdmin)<p class="muted small" style="margin-top:12px">This is the only active administrator, so the role cannot be changed until another administrator exists.</p>@endif
     </x-card>
+    <x-card title="Support departments">
+        @if ($departments->isEmpty())
+            <p class="muted">No departments yet. @if (auth()->user()->isAdmin())<a href="{{ route('admin.departments.create') }}" style="text-decoration:underline">Add one</a> to route support tickets.@endif</p>
+        @else
+            <div class="stack sm">
+                @foreach ($departments as $d)
+                    <label class="check"><input type="checkbox" name="departments[]" value="{{ $d->id }}" @checked(in_array($d->id, array_map('intval', (array) old('departments', $selected)), true))> {{ $d->name }}@unless ($d->is_active) <span class="muted">(inactive)</span>@endunless</label>
+                @endforeach
+            </div>
+        @endif
+        <p class="help" style="margin-top:12px">Staff in no department only see tickets assigned directly to them; admins see everything.</p>
+    </x-card>
     @unless ($editing)
     <x-card title="Password">
         <div class="stack sm">

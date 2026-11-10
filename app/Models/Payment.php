@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\PaymentStatus;
+use App\Models\Concerns\ExcludesInternalClients;
 use App\Models\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
-    use HasUuid;
+    use ExcludesInternalClients, HasUuid;
 
     protected $guarded = ['id'];
 

@@ -22,7 +22,7 @@ class PaymentController extends ApiController
     /** Completed payments, refunds and the net, per currency, for everything the same filters as the list match. */
     public function summary(Request $request)
     {
-        $rows = $this->filtered($request)->where('status', PaymentStatus::Completed->value)->reorder()
+        $rows = $this->filtered($request)->external()->where('status', PaymentStatus::Completed->value)->reorder()
             ->selectRaw('currency, type, sum(amount) as total')->groupBy('currency', 'type')->get()->groupBy('currency');
         $m = fn (int $amount, string $c) => ['amount' => $amount, 'currency' => $c, 'formatted' => Money::format($amount, $c)];
 

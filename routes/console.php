@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\TicketService;
 use Illuminate\Support\Facades\Schedule;
 
 // Add ONE cron entry:  * * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
@@ -14,3 +15,7 @@ Schedule::command('billing:autopay')->hourly()->withoutOverlapping();
 if (config('queue.default') !== 'sync' && ! env('BILLING_EXTERNAL_WORKER')) {
     Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping();
 }
+
+// Pull support email from the departments' IMAP mailboxes (only when the ticket system is switched on).
+Schedule::command('tickets:fetch')->everyMinute()->withoutOverlapping(10)->runInBackground()
+    ->when(fn () => TicketService::enabled());

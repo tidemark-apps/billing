@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
+use App\Models\Concerns\ExcludesInternalClients;
 use App\Models\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
 {
-    use HasUuid, SoftDeletes;
+    use ExcludesInternalClients, HasUuid, SoftDeletes;
 
     protected $guarded = ['id'];
 

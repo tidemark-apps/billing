@@ -26,7 +26,7 @@ class DashboardController extends ApiController
     {
         $currency = (string) Settings::get('billing.currency', config('billing.currency'));
         $money = fn (int $amount) => ['amount' => $amount, 'currency' => $currency, 'formatted' => Money::format($amount, $currency)];
-        $paid = fn () => Payment::where('currency', $currency)->where('status', PaymentStatus::Completed->value);
+        $paid = fn () => Payment::external()->where('currency', $currency)->where('status', PaymentStatus::Completed->value);
         $net = fn ($rows) => (int) $rows->sum(fn ($p) => $p->type === 'refund' ? -$p->amount : $p->amount);
 
         $from = now()->startOfMonth()->subMonths(11);
@@ -37,15 +37,15 @@ class DashboardController extends ApiController
             $months[] = ['month' => $m->format('Y-m'), 'revenue' => $money(max(0, $net($rows->filter(fn ($p) => $p->paid_at && $p->paid_at->format('Y-m') === $m->format('Y-m')))))];
         }
 
-        $open = Invoice::where('status', InvoiceStatus::Open->value)->where('currency', $currency);
+        $open = Invoice::external()->where('status', InvoiceStatus::Open->value)->where('currency', $currency);
 
         return response()->json(['data' => [
             'currency' => $currency,
             'revenue_this_month' => $money($net($rows->filter(fn ($p) => $p->paid_at && $p->paid_at->gte(now()->startOfMonth())))),
             'outstanding' => $money((int) (clone $open)->sum('total') - (int) (clone $open)->sum('amount_paid')),
-            'overdue_invoices' => Invoice::overdue()->count(),
-            'active_services' => Service::where('status', ServiceStatus::Active->value)->count(),
-            'new_clients_30d' => Client::where('created_at', '>=', now()->subDays(30))->count(),
+            'overdue_invoices' => Invoice::external()->overdue()->count(),
+            'active_services' => Service::external()->where('status', ServiceStatus::Active->value)->count(),
+            'new_clients_30d' => Client::external()->where('created_at', '>=', now()->subDays(30))->count(),
             'monthly_revenue' => $months,
             'recent_invoices' => InvoiceResource::collection(Invoice::latest('id')->limit(6)->get())->resolve($request),
             'recent_payments' => PaymentResource::collection(Payment::latest('id')->limit(6)->get())->resolve($request),

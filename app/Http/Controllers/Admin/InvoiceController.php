@@ -47,7 +47,7 @@ class InvoiceController extends Controller
                     ->orWhereHas('client', fn ($c) => $c->whereContains('name', $term)->orWhereContains('company_name', $term)->orWhereContains('email', $term)));
             });
 
-        $due = fn ($q) => $q->selectRaw('currency, sum(total - amount_paid) as due')->groupBy('currency')->pluck('due', 'currency');
+        $due = fn ($q) => $q->external()->selectRaw('currency, sum(total - amount_paid) as due')->groupBy('currency')->pluck('due', 'currency');
 
         return view('admin.invoices.index', [
             'invoices' => $query->latest('id')->paginate(25)->withQueryString(),

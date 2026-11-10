@@ -34,7 +34,7 @@ class PaymentController extends Controller
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('paid_at', '<=', $v));
 
         // Net of completed payments minus completed refunds, per currency, for everything the filters match.
-        $totals = (clone $query)->where('status', PaymentStatus::Completed->value)->reorder()
+        $totals = (clone $query)->external()->where('status', PaymentStatus::Completed->value)->reorder()
             ->selectRaw('currency, type, sum(amount) as total')->groupBy('currency', 'type')->get()
             ->groupBy('currency')->map(fn ($rows) => [
                 'in' => (int) $rows->firstWhere('type', 'payment')?->total,

@@ -17,6 +17,7 @@ class Builder
     private const TAGS = [
         '' => 'Meta', 'openapi.json' => 'Meta', 'auth' => 'Authentication', 'me' => 'Account', 'products' => 'Catalog', 'gateways' => 'Catalog',
         'orders' => 'Orders', 'services' => 'Services', 'invoices' => 'Invoices', 'quotes' => 'Quotes', 'payments' => 'Invoices', 'payment-methods' => 'Payment methods',
+        'tickets' => 'Support', 'ticket-departments' => 'Support',
     ];
 
     private const ADMIN_TAGS = [
@@ -24,6 +25,7 @@ class Builder
         'product-groups' => 'Products', 'modules' => 'Products', 'servers' => 'Servers', 'invoices' => 'Invoices', 'payments' => 'Payments', 'quotes' => 'Quotes',
         'tax-rates' => 'Tax rates', 'settings' => 'Settings', 'plugins' => 'Plugins', 'api-tokens' => 'API tokens', 'webhooks' => 'Webhooks', 'events' => 'Webhooks',
         'me' => 'Meta', 'abilities' => 'Meta', 'autopay' => 'Payments',
+        'tickets' => 'Support', 'ticket-departments' => 'Support', 'ticket-fields' => 'Support',
     ];
 
     /** Path parameters that are not numeric ids. */
@@ -219,10 +221,10 @@ class Builder
     private function pathParamSchema(string $param, bool $admin): array
     {
         if ($admin) {
-            return $param === 'method' ? ['type' => 'string', 'format' => 'uuid'] : (in_array($param, self::STRING_PARAMS, true) ? ['type' => 'string'] : ['type' => 'integer']);
+            return in_array($param, ['method', 'attachment'], true) ? ['type' => 'string', 'format' => 'uuid'] : (in_array($param, self::STRING_PARAMS, true) ? ['type' => 'string'] : ['type' => 'integer']);
         }
 
-        return in_array($param, ['service', 'invoice', 'quote', 'method'], true) ? ['type' => 'string', 'format' => 'uuid'] : ['type' => 'string'];
+        return in_array($param, ['service', 'invoice', 'quote', 'method', 'ticket', 'attachment'], true) ? ['type' => 'string', 'format' => 'uuid'] : ['type' => 'string'];
     }
 
     /** @param  string|array<string, mixed>  $spec @return array<string, mixed> */

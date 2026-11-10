@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\QuoteStatus;
+use App\Models\Concerns\ExcludesInternalClients;
 use App\Models\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Quote extends Model
 {
-    use HasUuid;
+    use ExcludesInternalClients, HasUuid;
 
     protected $guarded = ['id'];
 

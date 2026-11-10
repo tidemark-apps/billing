@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 
 class SettingsController extends Controller
 {
-    private const SECTIONS = ['general' => 'General', 'billing' => 'Billing', 'email' => 'Email', 'payments' => 'Payments', 'security' => 'Security', 'system' => 'System'];
+    private const SECTIONS = ['general' => 'General', 'billing' => 'Billing', 'email' => 'Email', 'payments' => 'Payments', 'security' => 'Security', 'support' => 'Support', 'system' => 'System'];
 
     public function show(Request $request, GatewayRegistry $gateways, ?string $section = 'general')
     {
@@ -221,6 +221,20 @@ class SettingsController extends Controller
             'security' => [
                 ['title' => 'Two-factor authentication', 'description' => 'Staff and clients can protect their own logins from their security page. Locked out? Run php artisan billing:reset-2fa you@example.com on the server.', 'fields' => [
                     $f('security.require_staff_2fa', 'Require two-factor authentication for staff', ['type' => 'checkbox', 'default' => false, 'help' => 'Staff and administrators without it are sent to set it up before they can use the admin area.']),
+                ]],
+            ],
+            'support' => [
+                ['title' => 'Support tickets', 'description' => 'A help desk for your customers: departments, email in and out, and a ticket list for staff. While this is off, every ticket page and endpoint is hidden.', 'fields' => [
+                    $f('support.enabled', 'Enable support tickets', ['type' => 'checkbox', 'default' => false, 'help' => 'Adds Tickets, Departments and Ticket fields to the admin menu and Support to the client area.']),
+                    $f('support.ticket_prefix', 'Ticket number prefix', ['default' => 'TKT-', 'help' => 'Quoted in email subjects so replies attach to the right ticket.']),
+                    $f('support.notify_staff', 'Email staff about new tickets and customer replies', ['type' => 'checkbox', 'default' => true, 'help' => 'Goes to the department\'s staff, and to the assignee when a ticket is assigned.']),
+                    $f('support.notify_customer_on_close', 'Email the customer when a ticket is closed', ['type' => 'checkbox', 'default' => true]),
+                    $f('support.reject_unknown_senders', 'Reject email from people without a client account', ['type' => 'checkbox', 'default' => false, 'help' => 'When on, mail from an address that matches no customer is ignored instead of opening a ticket. Leave off to let anyone email support.']),
+                ]],
+                ['title' => 'Attachments', 'description' => 'Files customers and staff can attach to messages. Stored privately and only served to people who can see the ticket.', 'fields' => [
+                    $f('support.max_attachment_mb', 'Largest file (MB)', ['type' => 'number', 'default' => 10]),
+                    $f('support.max_attachments', 'Files per message', ['type' => 'number', 'default' => 5, 'help' => '0 turns attachments off.']),
+                    $f('support.allowed_extensions', 'Allowed file types', ['placeholder' => 'png, jpg, pdf, txt, zip', 'help' => 'Comma-separated extensions. Leave blank to allow anything that is not blocked. Executables, scripts, HTML and SVG files are always refused, whatever you list here.']),
                 ]],
             ],
             default => [],

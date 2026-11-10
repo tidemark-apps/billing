@@ -8,6 +8,7 @@ use App\Events\ClientCreated;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\ClientResource;
 use App\Models\Client;
+use App\Services\InternalAccounts;
 use App\Services\Registration;
 use App\Services\TaxService;
 use App\Support\Countries;
@@ -57,7 +58,13 @@ class ClientController extends ApiController
     public function update(Request $request, Client $client): ClientResource
     {
         $data = $request->validate($this->rules(true));
-        $client->update($this->fields($data));
+        $fields = $this->fields($data);
+        $internal = $fields['is_internal'] ?? null;
+        unset($fields['is_internal']);
+        $client->update($fields);
+        if ($internal !== null) {
+            app(InternalAccounts::class)->set($client, (bool) $internal, $request->user());
+        }
         $this->audit('client.updated', $client);
 
         return new ClientResource($client->refresh());
@@ -103,6 +110,7 @@ class ClientController extends ApiController
             'tax_id' => ['nullable', 'string', 'max:64'],
             'currency' => ['nullable', 'string', 'size:3', fn ($a, $v, $fail) => isset(Money::currencies()[strtoupper((string) $v)]) || $fail('The selected currency is invalid.')],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'closed'])],
+            'is_internal' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ];
     }

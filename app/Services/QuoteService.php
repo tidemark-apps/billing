@@ -152,10 +152,11 @@ class QuoteService
                         'label' => $item->label,
                         'billing_cycle' => $item->billing_cycle,
                         'currency' => $quote->currency,
-                        'amount' => $item->unit_price,
+                        ...InternalAccounts::pricing($quote->client, (int) $item->unit_price),
                     ]);
                     $created[] = $service;
                     $row['kind'] = 'product';
+                    $row['unit_price'] = $service->amount;
                     $row['service_id'] = $service->id;
                 }
                 $items[] = $row;

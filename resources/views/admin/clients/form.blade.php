@@ -29,6 +29,7 @@
             <x-field name="tax_id" label="Tax / VAT ID" :value="$client->tax_id" />
             <x-field name="status" label="Status" type="select" :options="['active' => 'Active', 'inactive' => 'Inactive', 'closed' => 'Closed']" :value="$client->status" />
         </div>
+        <div style="margin-top:16px"><x-field name="is_internal" type="checkbox" label="Internal account" :value="$client->is_internal" help="For your own team, test customers and accounts on the house. Every service they have costs nothing, new ones are free, and they are left out of revenue and other report figures. Turning it off puts the normal prices back." /></div>
         <div style="margin-top:16px"><x-field name="notes" label="Internal notes" type="textarea" :value="$client->notes" help="Only staff can see these." /></div>
     </x-card>
     @unless ($editing)

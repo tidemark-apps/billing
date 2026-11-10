@@ -18,7 +18,8 @@
         "chillerlan/php-qrcode": "^6.0",
         "dompdf/dompdf": "^3.1",
         "laravel/framework": "^13.17",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "webklex/php-imap": "^6.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

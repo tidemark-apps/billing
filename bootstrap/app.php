@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureActive;
 use App\Http\Middleware\EnsureCustomer;
 use App\Http\Middleware\EnsureInstalled;
 use App\Http\Middleware\EnsureStaff;
+use App\Http\Middleware\EnsureSupportEnabled;
 use App\Http\Middleware\RequireAbility;
 use App\Support\Environment;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'customer' => EnsureCustomer::class,
             'auth.api' => AuthenticateApi::class,
             'ability' => RequireAbility::class,
+            'support' => EnsureSupportEnabled::class,
         ]);
         $middleware->validateCsrfTokens(except: ['webhooks/*']);
         $middleware->redirectGuestsTo(fn () => route('login'));

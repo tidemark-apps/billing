@@ -3,13 +3,14 @@
 @section('content')
 <x-page-head title="Staff" sub="People who can sign in to the admin area."><a class="btn primary" href="{{ route('admin.staff.create') }}"><x-icon name="plus" :size="15" /> Add staff</a></x-page-head>
 <x-card :flush="true">
-    <table class="t stack-sm"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last sign-in</th><th>2FA</th><th>Status</th><th></th></tr></thead><tbody>
+    <table class="t stack-sm"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Departments</th><th>Last sign-in</th><th>2FA</th><th>Status</th><th></th></tr></thead><tbody>
         @foreach ($users as $u)
         @php($me = $u->id === auth()->id())
         <tr>
             <td data-label="Name"><b>{{ $u->name }}</b>@if ($me) <span class="pill">You</span>@endif</td>
             <td data-label="Email">{{ $u->email }}</td>
             <td data-label="Role"><span class="pill {{ $u->isAdmin() ? 'brand' : '' }}">{{ $u->isAdmin() ? 'Administrator' : 'Staff' }}</span></td>
+            <td data-label="Departments">@if ($u->isAdmin())<span class="muted">All</span>@else{{ $u->departments->pluck('name')->implode(', ') ?: '—' }}@endif</td>
             <td data-label="Last sign-in">{{ $u->last_login_at?->diffForHumans() ?? 'Never' }}</td>
             <td data-label="2FA">
                 @if ($u->hasTwoFactor())
