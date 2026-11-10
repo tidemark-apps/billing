@@ -95,7 +95,7 @@ class ServicesTest extends TestCase
 
     public function test_lists_still_render_after_a_client_with_only_closed_services_is_deleted(): void
     {
-        $client = Client::factory()->create(['name' => 'Gone Customer']);
+        $client = Client::factory()->create(['name' => 'Gone Customer', 'company_name' => 'Gone Customer Ltd']);
         $product = Product::factory()->priced(2500)->module('fake')->create();
         $service = Service::create([
             'client_id' => $client->id, 'product_id' => $product->id, 'status' => ServiceStatus::Terminated,
@@ -106,7 +106,7 @@ class ServicesTest extends TestCase
         $this->actingAs($admin)->delete(route('admin.clients.destroy', $client))->assertRedirect();
         $this->assertSoftDeleted($client);
 
-        $this->actingAs($admin)->get(route('admin.services.index'))->assertOk()->assertSee('old.example')->assertSee('Gone Customer');
+        $this->actingAs($admin)->get(route('admin.services.index'))->assertOk()->assertSee('old.example')->assertSee('Gone Customer Ltd');
         $this->actingAs($admin)->get(route('admin.services.show', $service))->assertOk();
         $this->actingAs($admin)->get(route('admin.invoices.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.payments.index'))->assertOk();
