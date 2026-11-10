@@ -126,3 +126,12 @@ By email, a bad attachment never fails the message: it is dropped, the ticket or
 | `support.allowed_extensions` | empty | Comma-separated allow-list; empty means anything not blocked. |
 | `support.notify_staff` | `true` | Email department staff about new tickets and replies. |
 | `support.notify_customer_on_close` | `true` | Tell the customer when a ticket is closed. |
+
+
+## If the IMAP sign-in fails
+
+Tidemark Billing signs in with SASL `AUTHENTICATE PLAIN` when the server offers it (what Thunderbird, Apple Mail and Outlook do), and falls back to `LOGIN`. "Test connection" on the department page uses the values currently in the form and reports what the server answered to each method, plus the capabilities it offered, for example `AUTHENTICATE PLAIN → NO [AUTHENTICATIONFAILED] ...; LOGIN → NO [AUTHENTICATIONFAILED] ... [offered: SASL-IR AUTH=PLAIN]`. The message also shows the username, host, port and encryption that were used, so you can compare them with your mail client. Common causes when a mail client works but the server does not:
+
+- the mail server limits sign-ins by IP address or blocks the server's address after earlier failures (check fail2ban, cPHulk or the provider's security log);
+- the provider needs an app password for IMAP (Gmail, Microsoft 365, Zoho) or has IMAP access switched off for the mailbox;
+- the login name is not the email address.

@@ -10,12 +10,23 @@ class WebklexConnector implements MailboxConnector
 {
     public function open(Department $department): Mailbox
     {
+        $client = $this->build($department);
+        $client->connect();
+        $folder = $department->imap_folder ?: 'INBOX';
+        $client->openFolder($folder);
+
+        return new WebklexMailbox($client);
+    }
+
+    /** The configured client (not yet connected). */
+    protected function build(Department $department): SaslClient
+    {
         $encryption = match ($department->imap_encryption) {
             'ssl' => 'ssl',
             'starttls', 'tls' => 'starttls',
             default => false,
         };
-        $client = (new ClientManager)->make([
+        $made = (new ClientManager)->make([
             'host' => (string) $department->imap_host,
             'port' => (int) ($department->imap_port ?: 993),
             'protocol' => 'imap',
@@ -26,10 +37,9 @@ class WebklexConnector implements MailboxConnector
             'authentication' => null,
             'timeout' => 20,
         ]);
-        $client->connect();
-        $folder = $department->imap_folder ?: 'INBOX';
-        $client->openFolder($folder);
+        // Same configuration, but signing in like a mail client does: SASL PLAIN first, then LOGIN.
+        $client = new SaslClient($made->getConfig());
 
-        return new WebklexMailbox($client);
+        return $client;
     }
 }

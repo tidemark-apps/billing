@@ -36,7 +36,7 @@ Route::middleware('support')->group(function () {
             Route::post('/', [DepartmentController::class, 'store'])->name('store');
             Route::get('{department}/edit', [DepartmentController::class, 'edit'])->whereNumber('department')->name('edit');
             Route::put('{department}', [DepartmentController::class, 'update'])->whereNumber('department')->name('update');
-            Route::post('{department}/test', [DepartmentController::class, 'test'])->whereNumber('department')->name('test');
+            Route::match(['post', 'put'], '{department}/test', [DepartmentController::class, 'test'])->whereNumber('department')->name('test');
             Route::delete('{department}', [DepartmentController::class, 'destroy'])->whereNumber('department')->name('destroy');
         });
         Route::prefix('ticket-fields')->name('ticket-fields.')->group(function () {

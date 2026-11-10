@@ -41,6 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => RequireAbility::class,
             'support' => EnsureSupportEnabled::class,
         ]);
+        // A password may legitimately start or end with a space.
+        $middleware->trimStrings(except: ['imap_password']);
         $middleware->validateCsrfTokens(except: ['webhooks/*']);
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->trustProxies(at: env('TRUSTED_PROXIES', '*') === '*' ? '*' : explode(',', (string) env('TRUSTED_PROXIES')));

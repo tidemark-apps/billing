@@ -95,13 +95,51 @@ class SupportSetupTest extends TestCase
         $this->assertNull(Department::find($empty->id));
     }
 
+    public function test_test_connection_uses_the_values_in_the_form_without_saving_them(): void
+    {
+        $d = Department::create(['name' => 'Sales', 'slug' => 'sales', 'imap_host' => 'old.example.com', 'imap_username' => 'old@example.com', 'imap_password' => 'saved-secret']);
+        $seen = [];
+        $this->mock(ImapPuller::class, function ($m) use (&$seen) {
+            $m->shouldReceive('test')->andReturnUsing(function (Department $probe) use (&$seen) {
+                $seen[] = [$probe->imap_host, $probe->imap_username, $probe->imap_password, $probe->imap_port, $probe->imap_encryption];
+
+                return ['ok' => false, 'message' => 'NO [AUTHENTICATIONFAILED]'];
+            });
+        });
+
+        $this->actingAs($this->admin())->put(route('admin.departments.test', $d), [
+            'imap_host' => 'mail.example.com', 'imap_port' => '143', 'imap_encryption' => 'starttls', 'imap_username' => 'new@example.com', 'imap_password' => ' typed pw ',
+        ]);
+        $message = (string) session('error');
+        $this->actingAs($this->admin())->post(route('admin.departments.test', $d), ['imap_host' => 'mail.example.com', 'imap_password' => '']);
+
+        $this->assertSame(['mail.example.com', 'new@example.com', ' typed pw ', 143, 'starttls'], $seen[0], 'typed values are used, whitespace in a password is kept');
+        $this->assertSame('saved-secret', $seen[1][2], 'a blank password falls back to the saved one');
+        $this->assertSame('old@example.com', $seen[1][1]);
+        $this->assertStringContainsString('signed in as "new@example.com" to mail.example.com:143 using starttls', $message);
+        $this->assertStringNotContainsString('typed pw', $message);
+        $fresh = $d->fresh();
+        $this->assertSame(['old.example.com', 'old@example.com', 'saved-secret'], [$fresh->imap_host, $fresh->imap_username, $fresh->imap_password], 'nothing was saved');
+    }
+
+    public function test_a_saved_imap_password_keeps_leading_and_trailing_spaces(): void
+    {
+        $d = Department::create(['name' => 'Sales', 'slug' => 'sales']);
+
+        $this->actingAs($this->admin())->put(route('admin.departments.update', $d), [
+            'name' => 'Sales', 'slug' => 'sales', 'is_public' => 1, 'is_active' => 1, 'imap_enabled' => 1, 'imap_host' => 'h.example.com', 'imap_username' => 'u@example.com', 'imap_port' => 993, 'imap_encryption' => 'ssl', 'imap_after' => 'seen', 'imap_password' => ' pw ',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(' pw ', $d->fresh()->imap_password);
+    }
+
     public function test_test_connection_shows_the_result(): void
     {
         $d = Department::create(['name' => 'Sales', 'slug' => 'sales']);
         $this->mock(ImapPuller::class, fn ($m) => $m->shouldReceive('test')->twice()->andReturn(['ok' => true, 'message' => 'Logged in, 3 messages.'], ['ok' => false, 'message' => 'Bad password']));
 
         $this->actingAs($this->admin())->post(route('admin.departments.test', $d))->assertRedirect(route('admin.departments.edit', $d))->assertSessionHas('status', 'Connection works: Logged in, 3 messages.');
-        $this->actingAs($this->admin())->post(route('admin.departments.test', $d))->assertSessionHas('error', 'Connection failed: Bad password');
+        $this->actingAs($this->admin())->post(route('admin.departments.test', $d))->assertSessionHas('error', fn ($m) => str_starts_with($m, 'Connection failed: Bad password'));
     }
 
     public function test_department_page_shows_last_check_and_error(): void

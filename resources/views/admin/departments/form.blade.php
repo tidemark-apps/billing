@@ -49,9 +49,9 @@
                 @if ($department->imap_error)<div class="notice danger"><x-icon name="triangle-alert" :size="16" /><div>Last error: {{ $department->imap_error }}</div></div>@endif
             @endif
         </div>
-        <x-slot:footer><span>{{ $editing ? 'Tests the saved settings. Save first if you changed them.' : 'You can test the connection after saving.' }}</span>@if ($editing)<button class="btn sm" type="submit" form="imap-test" data-no-lock>Test connection</button>@endif</x-slot:footer>
+        <x-slot:footer><span>{{ $editing ? 'Tests what is in the form now (a blank password uses the saved one). Nothing is saved until you press Save.' : 'You can test the connection after saving.' }}</span>@if ($editing)<button class="btn sm" type="submit" formaction="{{ route('admin.departments.test', $department) }}" formmethod="post" data-no-lock>Test connection</button>@endif</x-slot:footer>
     </x-card>
     <div class="row"><button class="btn primary" type="submit">{{ $editing ? 'Save changes' : 'Add department' }}</button><a class="btn" href="{{ route('admin.departments.index') }}">Cancel</a></div>
 </form>
-@if ($editing)<form id="imap-test" method="POST" action="{{ route('admin.departments.test', $department) }}">@csrf</form>@endif
+
 @endsection

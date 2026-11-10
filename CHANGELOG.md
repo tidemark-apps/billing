@@ -4,6 +4,13 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-12
+
+### Fixed
+- Support email over IMAP now signs in the way mail clients do (SASL PLAIN first, then LOGIN), which some mail servers need. A failed sign-in now reports what the server said to each method and which methods it offered, so the cause is visible.
+- "Test connection" on a department now tests what is typed in the form instead of the last saved settings, and says which user, server and encryption it tried (never the password).
+- IMAP passwords that start or end with a space are saved as typed.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added

@@ -52,15 +52,32 @@ class DepartmentController extends Controller
         return redirect()->route('admin.departments.edit', $department)->with('status', 'Department saved.');
     }
 
-    public function test(Department $department): RedirectResponse
+    /** Tests the connection with what is in the form (nothing is saved); a blank password falls back to the saved one. */
+    public function test(Request $request, Department $department): RedirectResponse
     {
+        $probe = $department->replicate();
+        $probe->imap_password = $department->imap_password;
+        foreach (['imap_host', 'imap_username', 'imap_folder', 'imap_encryption'] as $key) {
+            if ($request->filled($key)) {
+                $probe->{$key} = (string) $request->input($key);
+            }
+        }
+        if ($request->filled('imap_port')) {
+            $probe->imap_port = (int) $request->input('imap_port');
+        }
+        if ($request->has('imap_validate_cert')) {
+            $probe->imap_validate_cert = $request->boolean('imap_validate_cert');
+        }
+        if (($request->input('imap_password') ?? '') !== '') {
+            $probe->imap_password = (string) $request->input('imap_password');
+        }
         try {
-            $result = app(ImapPuller::class)->test($department);
+            $result = app(ImapPuller::class)->test($probe);
         } catch (\Throwable $e) {
             $result = ['ok' => false, 'message' => $e->getMessage()];
         }
 
-        return redirect()->route('admin.departments.edit', $department)->with($result['ok'] ? 'status' : 'error', ($result['ok'] ? 'Connection works: ' : 'Connection failed: ').$result['message']);
+        return redirect()->route('admin.departments.edit', $department)->with($result['ok'] ? 'status' : 'error', ($result['ok'] ? 'Connection works: ' : 'Connection failed: ').$result['message'].($result['ok'] ? '' : ' (signed in as "'.$probe->imap_username.'" to '.$probe->imap_host.':'.$probe->imap_port.' using '.($probe->imap_encryption === 'none' ? 'no encryption' : $probe->imap_encryption).($probe->imap_password === null || $probe->imap_password === '' ? ', with NO password' : '').')'));
     }
 
     public function destroy(Department $department): RedirectResponse
@@ -118,8 +135,8 @@ class DepartmentController extends Controller
         $staff = array_map('intval', $d['staff'] ?? []);
         unset($d['staff']);
         $d['sort'] = (int) ($d['sort'] ?? 0);
-        $d['imap_port'] = (int) ($d['imap_port'] ?: 993);
-        $d['imap_folder'] = $d['imap_folder'] ?: 'INBOX';
+        $d['imap_port'] = (int) ($d['imap_port'] ?? 0 ?: 993);
+        $d['imap_folder'] = ($d['imap_folder'] ?? '') ?: 'INBOX';
         if (($d['imap_password'] ?? '') === '') {
             unset($d['imap_password']); // blank keeps the stored one
         }
