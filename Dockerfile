@@ -23,11 +23,15 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/zz-billing.ini
 
 RUN echo "${VERSION}" > /app/VERSION \
     && rm -rf /app/tests /app/dist /app/.github /app/.git /app/storage \
+    && ln -s /data/storage /app/storage \
+    && ln -s /data/.env /app/.env \
+    && ln -s /data/database.sqlite /app/database/database.sqlite \
     && mkdir -p /data /config /app/bootstrap/cache \
     && chown billing:billing /app \
     && chown -R billing:billing /data /config /app/bootstrap/cache \
     && chmod +x /usr/local/bin/billing-entrypoint
 
+# The image runs with a read-only root filesystem: /data, /config and /tmp are the only places written to.
 # Plugins bundled in the image live in /app/plugins. Put your own in /data/plugins (they are discovered too).
 ENV APP_ENV=production \
     APP_DEBUG=false \
@@ -35,6 +39,11 @@ ENV APP_ENV=production \
     QUEUE_CONNECTION=database \
     BILLING_EXTERNAL_WORKER=1 \
     BILLING_EXTRA_PLUGINS_PATH=/data/plugins \
+    APP_SERVICES_CACHE=/tmp/services.php \
+    APP_PACKAGES_CACHE=/tmp/packages.php \
+    APP_CONFIG_CACHE=/tmp/config.php \
+    APP_ROUTES_CACHE=/tmp/routes.php \
+    APP_EVENTS_CACHE=/tmp/events.php \
     HOME=/config \
     XDG_CONFIG_HOME=/config \
     XDG_DATA_HOME=/config \

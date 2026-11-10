@@ -17,26 +17,28 @@ fi
 
 DATA=/data
 mkdir -p "$DATA/storage/app/public" "$DATA/storage/framework/cache/data" "$DATA/storage/framework/sessions" "$DATA/storage/framework/views" "$DATA/storage/logs" "$DATA/plugins"
-ln -sfn "$DATA/storage" /app/storage
+# /app/storage, /app/.env and /app/database/database.sqlite are links into /data made when the image is built
+# (older images made them here), so the app directory itself can be read-only.
+[ -L /app/storage ] || ln -sfn "$DATA/storage" /app/storage
 
 if [ ! -f "$DATA/.env" ]; then
     cp /app/.env.example "$DATA/.env"
     KEY="base64:$(head -c 32 /dev/urandom | base64)"
     sed -i "s#^APP_KEY=.*#APP_KEY=${KEY}#" "$DATA/.env"
 fi
-ln -sf "$DATA/.env" /app/.env
+[ -L /app/.env ] || ln -sf "$DATA/.env" /app/.env
 
 # SQLite lives in the volume; the installer and the default .env both point at database/database.sqlite
 [ -f "$DATA/database.sqlite" ] || : > "$DATA/database.sqlite"
-ln -sf "$DATA/database.sqlite" /app/database/database.sqlite
+[ -L /app/database/database.sqlite ] || ln -sf "$DATA/database.sqlite" /app/database/database.sqlite
 
-rm -f /app/bootstrap/cache/*.php
+rm -f /app/bootstrap/cache/*.php 2>/dev/null || true
 
 if [ -f "$DATA/storage/app/installed" ]; then
     # already installed: apply any new migrations from the updated image
     php /app/artisan migrate --force --no-interaction || true
-elif [ -n "$BILLING_ADMIN_EMAIL" ] && [ -n "$BILLING_ADMIN_PASSWORD" ]; then
-    # unattended first run: create the admin from environment variables
+elif [ -n "$BILLING_ADMIN_EMAIL" ] && { [ -n "$BILLING_ADMIN_PASSWORD" ] || [ "$BILLING_HOSTED" = "true" ] || [ "$BILLING_HOSTED" = "1" ]; }; then
+    # unattended first run: create the admin from environment variables (a hosted install needs no password: it prints a login link instead)
     php /app/artisan billing:install --no-interaction || true
 fi
 
