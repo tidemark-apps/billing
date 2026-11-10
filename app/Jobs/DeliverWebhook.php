@@ -32,7 +32,15 @@ class DeliverWebhook implements ShouldQueue
         $signature = hash_hmac('sha256', $timestamp.'.'.$body, $delivery->endpoint->secret);
 
         try {
-            $response = Http::timeout(10)->withHeaders([
+            $hosted = (bool) config('billing.hosted');
+            if ($hosted && ! self::isPublicUrl($delivery->endpoint->url)) {
+                throw new \RuntimeException('Webhook URL must point to a public address.');
+            }
+            $request = Http::timeout(10);
+            if ($hosted) {
+                $request = $request->withoutRedirecting();
+            }
+            $response = $request->withHeaders([
                 'Content-Type' => 'application/json',
                 'User-Agent' => 'Tidemark-Billing-Webhook/1.0',
                 'X-Billing-Event' => $delivery->event,
@@ -54,5 +62,34 @@ class DeliverWebhook implements ShouldQueue
             $delivery->update(['attempts' => $delivery->attempts + 1, 'success' => false, 'response' => mb_substr($e->getMessage(), 0, 1000)]);
             $this->release($this->backoff()[min($this->attempts() - 1, 2)]);
         }
+    }
+
+    /** On a hosted install a webhook may only reach public addresses (the host also enforces this in the firewall). */
+    public static function isPublicUrl(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (! is_string($host) || $host === '') {
+            return false;
+        }
+        $host = trim($host, '[]');
+        $ips = [];
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            $ips = [$host];
+        } else {
+            foreach (@dns_get_record($host, DNS_A | DNS_AAAA) ?: [] as $r) {
+                $ips[] = $r['ip'] ?? $r['ipv6'] ?? null;
+            }
+        }
+        $ips = array_filter($ips);
+        if ($ips === []) {
+            return false;
+        }
+        foreach ($ips as $ip) {
+            if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
