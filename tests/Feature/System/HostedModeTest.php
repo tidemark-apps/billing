@@ -84,4 +84,14 @@ class HostedModeTest extends TestCase
         $this->post('/reset-password', ['token' => $token, 'email' => $admin->email, 'password' => 'a-new-password-1', 'password_confirmation' => 'a-new-password-1'])->assertRedirect('/login');
         $this->assertTrue(Hash::check('a-new-password-1', $admin->fresh()->password));
     }
+
+    public function test_hosted_from_name_defaults_to_the_business_name(): void
+    {
+        config(['billing.hosted' => true, 'mail.default' => 'log', 'mail.from.name' => 'Tidemark Billing']);
+        Settings::set('company.name', 'Acme Hosting');
+
+        (new \ReflectionMethod(app()->getProvider(AppServiceProvider::class), 'applyMailSettings'))->invoke(app()->getProvider(AppServiceProvider::class));
+
+        $this->assertSame('Acme Hosting', config('mail.from.name'));
+    }
 }

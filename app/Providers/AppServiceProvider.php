@@ -80,8 +80,8 @@ class AppServiceProvider extends ServiceProvider
     private function applyMailSettings(): void
     {
         if (config('billing.hosted')) {
-            // The transport and sender address are fixed by the host; the owner can only choose the display name.
-            if ($name = Settings::get('mail.from_name')) {
+            // The transport and sender address are fixed by the host; the owner can only choose the display name (default: the business name).
+            if ($name = Settings::get('mail.from_name') ?: Settings::get('company.name')) {
                 config(['mail.from.name' => $name]);
             }
 
