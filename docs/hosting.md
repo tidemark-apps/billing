@@ -7,7 +7,7 @@ For a provider that runs one install per customer. Self-hosters can ignore all o
 | Variable | Effect |
 |---|---|
 | `BILLING_HOSTED=true` | Closes `/install` and plugin uploads, fixes the mail transport to the environment (the owner can only set the From name), lets `billing:install` run without a password. |
-| `BILLING_ADMIN_EMAIL` | With `BILLING_HOSTED`, the Docker image installs on first start and creates this owner. Run `php artisan billing:login-link <email>` for the first sign-in. |
+| `BILLING_ADMIN_EMAIL` | With `BILLING_HOSTED`, the Docker image installs on first start and creates this owner. Run `php artisan billing:login-link <email> --reset` to get a link where the owner chooses a password (valid for `PASSWORD_RESET_EXPIRE` minutes, default 60). |
 | `BILLING_PLAN_FILE` | Path of the plan file below. |
 | `BILLING_SSO_PUBLIC_KEY` | Base64 Ed25519 public key of the host. Turns on `/sso`. |
 

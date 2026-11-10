@@ -6,6 +6,7 @@ use App\Providers\AppServiceProvider;
 use App\Support\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
@@ -70,5 +71,17 @@ class HostedModeTest extends TestCase
     public function test_login_link_command_refuses_an_unknown_user(): void
     {
         $this->artisan('billing:login-link', ['email' => 'nobody@example.com'])->assertFailed();
+    }
+
+    public function test_login_link_reset_option_prints_a_working_password_link(): void
+    {
+        $admin = $this->admin();
+        Artisan::call('billing:login-link', ['email' => $admin->email, '--reset' => true]);
+        $url = trim(Artisan::output());
+
+        $this->assertStringContainsString('/reset-password/', $url);
+        $token = explode('?', substr($url, strpos($url, '/reset-password/') + 16))[0];
+        $this->post('/reset-password', ['token' => $token, 'email' => $admin->email, 'password' => 'a-new-password-1', 'password_confirmation' => 'a-new-password-1'])->assertRedirect('/login');
+        $this->assertTrue(Hash::check('a-new-password-1', $admin->fresh()->password));
     }
 }

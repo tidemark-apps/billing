@@ -45,7 +45,7 @@ class InstallCommand extends Command
             'currency' => $this->option('currency') ?: env('BILLING_CURRENCY', 'USD'),
             'plugins' => $this->option('plugin'),
         ]);
-        $this->info($generated ? "Installed. Run `php artisan billing:login-link $email` for the owner's first sign-in." : "Installed. Sign in as $email.");
+        $this->info($generated ? "Installed. Run `php artisan billing:login-link $email --reset` for the owner's first sign-in." : "Installed. Sign in as $email.");
 
         return self::SUCCESS;
     }
