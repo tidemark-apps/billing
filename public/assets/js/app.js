@@ -54,6 +54,13 @@
     if (scrim) scrim.addEventListener('click', function () { app.classList.remove('side-open'); });
   }
 
+  // ---- colour fields: the picker and the hex box stay in step ---------------------------------------------------
+  $$('[data-color-field]').forEach(function (box) {
+    var pick = box.querySelector('input[type="color"]'), text = box.querySelector('input[type="text"]');
+    pick.addEventListener('input', function () { text.value = pick.value; });
+    text.addEventListener('input', function () { var v = text.value.trim(); if (/^#?[0-9a-f]{6}$/i.test(v)) pick.value = v.charAt(0) === '#' ? v : '#' + v; });
+  });
+
   // ---- confirm dialog (any form/button with data-confirm) -----------------------------------------------------
   var modal = null;
   function closeModal() { if (modal) { modal.remove(); modal = null; } }
@@ -207,6 +214,79 @@
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && e.target.tagName === 'TEXTAREA') { e.preventDefault(); e.target.form.requestSubmit(); }
     });
   });
+
+  // ---- knowledge base: the Markdown / WYSIWYG editor and the article reader --------------------------------------
+  // <div data-md-editor data-for="textarea-id" data-script data-css data-css-dark data-upload> loads Toast UI Editor on demand and keeps the
+  // textarea in step; [data-prose] gets copy buttons on code blocks, syntax colours (highlight.js, loaded only if needed) and a scroll-spy "On this page".
+  (function () {
+    function loadScript(src, done) { var s = document.createElement('script'); s.src = src; s.onload = done; document.head.appendChild(s); }
+    function loadCss(href) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); }
+    function isDark() { var t = document.documentElement.dataset.theme; return t === 'dark' || (t !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+
+    $$('[data-md-editor]').forEach(function (box) {
+      var ta = document.getElementById(box.dataset.for), form = ta && ta.form; if (!form) return;
+      var dark = isDark();
+      loadCss(box.dataset.css); if (dark) loadCss(box.dataset.cssDark);
+      loadScript(box.dataset.script, function () {
+        box.textContent = '';
+        var kinds = [['note', 'Note'], ['tip', 'Tip'], ['important', 'Important'], ['warning', 'Warning'], ['caution', 'Caution']];
+        var menu = document.createElement('div'); menu.className = 'callout-menu';
+        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'toastui-editor-toolbar-icons callout-btn'; btn.setAttribute('aria-label', 'Insert a callout');
+        var editor = new toastui.Editor({
+          el: box, height: '640px', initialEditType: 'wysiwyg', previewStyle: 'tab', initialValue: ta.value, usageStatistics: false, theme: dark ? 'dark' : 'light', placeholder: 'Write the article…',
+          toolbarItems: [['heading', 'bold', 'italic'], ['quote'], ['ul', 'ol', 'task'], ['table', 'image', 'link'], ['code', 'codeblock'], [{ name: 'callout', tooltip: 'Callout', el: btn, popup: { body: menu, style: { width: 'auto' } } }]],
+          hooks: {
+            addImageBlobHook: function (blob, cb) {
+              var fd = new FormData(); fd.append('image', blob, blob.name || 'image.png'); fd.append('_token', form.querySelector('input[name="_token"]').value);
+              fetch(box.dataset.upload, { method: 'POST', body: fd, headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (r) { if (r.ok && r.j.url) cb(r.j.url, blob.name || 'image'); else window.alert((r.j.errors && r.j.errors.image && r.j.errors.image[0]) || r.j.message || 'That image could not be uploaded.'); })
+                .catch(function () { window.alert('That image could not be uploaded.'); });
+            }
+          }
+        });
+        kinds.forEach(function (k) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = k[1];
+          b.addEventListener('click', function () {
+            if (editor.isMarkdownMode()) editor.insertText('\n> [!' + k[0].toUpperCase() + ']\n> Write the note here.\n');
+            else { editor.exec('blockQuote'); editor.insertText('[!' + k[0].toUpperCase() + ']'); }
+            editor.eventEmitter.emit('closePopup'); editor.focus();
+          });
+          menu.appendChild(b);
+        });
+        form.addEventListener('submit', function () { ta.value = editor.getMarkdown(); });
+      });
+    });
+
+    $$('[data-prose]').forEach(function (root) {
+      var blocks = $$('pre > code', root);
+      blocks.forEach(function (code) {
+        var pre = code.parentNode, m = /language-([\w+-]+)/.exec(code.className || '');
+        var bar = document.createElement('div'); bar.className = 'code-bar';
+        var label = document.createElement('span'); label.textContent = m ? m[1] : '';
+        var copy = document.createElement('button'); copy.type = 'button'; copy.className = 'code-copy'; copy.textContent = 'Copy'; copy.setAttribute('aria-label', 'Copy code');
+        copy.addEventListener('click', function () {
+          var text = code.textContent, done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); };
+          if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done);
+          else { var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) { /* no clipboard access */ } document.body.removeChild(t); }
+        });
+        bar.appendChild(label); bar.appendChild(copy); pre.insertBefore(bar, code);
+      });
+      var coloured = blocks.filter(function (c) { return /language-(?!text\b|plain\b)/.test(c.className || ''); });
+      if (coloured.length && root.dataset.hljs) {
+        loadCss(isDark() ? root.dataset.hljsCssDark : root.dataset.hljsCss);
+        loadScript(root.dataset.hljs, function () { coloured.forEach(function (c) { try { window.hljs.highlightElement(c); } catch (e) { /* unknown language */ } }); });
+      }
+    });
+
+    var toc = $$('.docs-toc a'), heads = toc.map(function (a) { return document.getElementById(decodeURIComponent(a.hash.slice(1))); }).filter(Boolean);
+    if (toc.length && 'IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { toc.forEach(function (a) { a.classList.toggle('on', decodeURIComponent(a.hash.slice(1)) === e.target.id); }); } });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      heads.forEach(function (h) { io.observe(h); });
+    }
+  })();
 
   // ---- submit buttons show a spinner and block double submits ----------------------------------------------------
   document.addEventListener('submit', function (e) {

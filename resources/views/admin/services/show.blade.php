@@ -64,7 +64,7 @@
     <div class="setting-h"><h2>Danger zone</h2><p>These end the service and remove the remote account. They can't be undone.</p></div>
     <div class="setting-b stack sm">
         <div class="row spread"><div><b>Cancel service</b><div class="help">Cancels now and removes the remote account. Past invoices stay.</div></div>
-            <form method="POST" action="{{ route('admin.services.cancel', $service) }}" data-confirm="Cancel {{ $service->title() }} now? The remote account will be removed." data-confirm-label="Cancel service" data-danger>@csrf<input type="hidden" name="immediately" value="1"><button class="btn danger sm" type="submit">Cancel service</button></form></div>
+            <form method="POST" action="{{ route('admin.services.cancel', $service) }}" data-confirm="Cancel {{ $service->title() }} now? The remote account will be removed." data-confirm-label="Cancel service" data-danger>@csrf<input type="hidden" name="immediately" value="1">@if ($refundPreview)<label class="check"><input type="checkbox" name="refund" value="1" @checked(\App\Services\Cancellations::refundsByDefault())> Refund {{ money($refundPreview['amount'], $refundPreview['currency']) }} for the unused time</label>@endif<button class="btn danger sm" type="submit">Cancel service</button></form></div>
         <div class="row spread"><div><b>Terminate service</b><div class="help">Deletes the remote account and marks the service terminated.</div></div>
             <form method="POST" action="{{ route('admin.services.terminate', $service) }}" data-confirm="Terminate {{ $service->title() }}? The remote account will be deleted." data-confirm-label="Terminate" data-danger>@csrf<button class="btn danger sm" type="submit">Terminate service</button></form></div>
     </div>

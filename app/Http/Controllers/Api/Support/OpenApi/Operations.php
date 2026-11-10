@@ -52,7 +52,7 @@ class Operations
             'client.services.plan-change.preview' => ['Preview a plan change without making it: proration credit, charge and amount due. 422 when the plan is not offered', self::one('PlanChangePreview'), 'PlanChangeInput'],
             'client.services.plan-change' => ['Change plan: upgrades are prorated and invoiced now, downgrades take effect at the next renewal (a scheduled change replaces an earlier one). Returns the recorded change with its invoice, if any', self::one('PlanChange'), 'PlanChangeInput'],
             'client.services.plan-change.cancel' => ['Cancel the plan change waiting for the next renewal (422 when there is none)', self::none()],
-            'client.services.cancel' => ['Cancel a service (at period end unless immediately)', self::one('Service'), Dsl::obj(['immediately' => 'boolean', 'reason' => 'string'])],
+            'client.services.cancel' => ['Cancel a service. When it takes effect follows Settings → Billing → Cancellations: at the end of the billing term, immediately, or by the customer\'s choice (immediately:true; refused with 422 when only end-of-term is allowed). meta.refund reports an automatic refund of the unused time, if one was made', self::one('Service'), Dsl::obj(['immediately' => 'boolean', 'reason' => 'string'])],
             'client.services.action' => ['Run a module action such as a control-panel login', self::one('ActionResult')],
             'client.invoices.index' => ['List your invoices', self::page('Invoice'), null, ['status' => 'string']],
             'client.invoices.show' => ['Get an invoice by uuid', self::one('Invoice')],
@@ -135,7 +135,7 @@ class Operations
             'admin.services.suspend' => ['Suspend a service', self::one('Service'), Dsl::obj(['reason' => 'string'])],
             'admin.services.unsuspend' => ['Unsuspend a service', self::one('Service')],
             'admin.services.terminate' => ['Terminate a service (deletes the remote account)', self::one('Service')],
-            'admin.services.cancel' => ['Cancel a service (at period end unless immediately)', self::one('Service'), Dsl::obj(['immediately' => 'boolean', 'reason' => 'string'])],
+            'admin.services.cancel' => ['Cancel a service (at period end unless immediately). With immediately:true, refund:true refunds the unused time of the current period (default: the Cancellations setting); meta.refund reports the result', self::one('Service'), Dsl::obj(['immediately' => 'boolean', 'reason' => 'string', 'refund' => 'boolean'])],
             'admin.services.reveal' => ['Reveal the secrets a module stored for a service (logged)', self::one('ServiceSecrets')],
             'admin.services.action' => ['Run a module admin action', self::one('ActionResult')],
 

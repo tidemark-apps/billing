@@ -1,7 +1,7 @@
 @extends('layouts.app', ['area' => 'portal'])
-@section('title', 'Quotes')
+@section('title', 'My quotes')
 @section('content')
-<x-page-head title="Quotes" sub="Review proposals and accept or decline them online." />
+<x-page-head title="My quotes" sub="Review proposals and accept or decline them online." />
 <x-view-tabs :tabs="['' => 'All', 'open' => 'Awaiting response', 'accepted' => 'Accepted', 'closed' => 'Declined / expired']" :current="$status" :counts="$counts" param="status" label="Quote status" />
 <x-card :flush="true">
 @if ($quotes->isEmpty())

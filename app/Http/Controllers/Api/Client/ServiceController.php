@@ -7,9 +7,11 @@ use App\Http\Controllers\Api\Support\PlanChangeEndpoints;
 use App\Http\Resources\ServiceResource;
 use App\Http\Resources\UsageSummaryResource;
 use App\Models\Service;
+use App\Services\Cancellations;
 use App\Services\ProvisioningService;
 use App\Services\UsageService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ServiceController extends ApiController
 {
@@ -34,12 +36,16 @@ class ServiceController extends ApiController
         ] + ($request->attributes->get('api_token')?->can('usage.read') && $usage->hasMeters($model) ? ['usage' => (new UsageSummaryResource($usage->currentPeriodSummary($model)))->resolve($request)] : [])]);
     }
 
-    public function cancel(Request $request, string $service, ProvisioningService $provisioning): ServiceResource
+    public function cancel(Request $request, string $service, Cancellations $cancellations): ServiceResource
     {
         $data = $request->validate(['immediately' => ['nullable', 'boolean'], 'reason' => ['nullable', 'string', 'max:255']]);
-        $model = $provisioning->cancel($this->find($request, $service), (bool) ($data['immediately'] ?? false), $data['reason'] ?? null);
+        $asked = ! empty($data['immediately']);
+        if ($asked && Cancellations::mode() === 'end_of_term') {
+            throw ValidationException::withMessages(['immediately' => 'Services are cancelled at the end of the billing term.']);
+        }
+        $result = $cancellations->cancel($this->find($request, $service), Cancellations::customerCancelsNow($asked ? 'now' : null), $data['reason'] ?? null);
 
-        return new ServiceResource($model->load('product'));
+        return (new ServiceResource($result['service']->load('product')))->additional(['meta' => ['refund' => $result['refund']]]);
     }
 
     /** Run a module "client action" such as a control-panel login or password reset. */

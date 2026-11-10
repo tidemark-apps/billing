@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\Quote;
 use App\Plugins\Hooks;
+use App\Support\Brand;
 use App\Support\Settings;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -98,7 +99,7 @@ class PdfRenderer
                 'tax_id' => (string) Settings::get('company.tax_id', ''),
                 'logo' => $this->logoDataUri(),
             ],
-            'accent' => '#0e7c86',
+            'accent' => Brand::light()['ink'],
             'paymentInstructions' => (string) Settings::get('billing.payment_instructions', ''),
             'payUrl' => null,
         ];

@@ -7,6 +7,7 @@ use App\Events\InvoicePaid;
 use App\Listeners\AutoPayInvoice;
 use App\Listeners\FulfillPaidInvoice;
 use App\Listeners\QueueWebhooks;
+use App\Services\Knowledgebase\Knowledgebase;
 use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -18,7 +19,11 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        // one tree per request, shared by the controllers and the views
+        $this->app->scoped(Knowledgebase::class);
+    }
 
     public function boot(): void
     {

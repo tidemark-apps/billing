@@ -16,6 +16,7 @@ use App\Models\Client;
 use App\Models\Product;
 use App\Models\Service;
 use App\Services\BillingRunner;
+use App\Services\Cancellations;
 use App\Services\InternalAccounts;
 use App\Services\OrderService;
 use App\Services\ProvisioningService;
@@ -172,11 +173,13 @@ class ServiceController extends ApiController
         return $this->respond($this->provisioning->terminate($service), 'terminate');
     }
 
-    public function cancel(Request $request, Service $service): ServiceResource
+    public function cancel(Request $request, Service $service, Cancellations $cancellations): ServiceResource
     {
-        $data = $request->validate(['immediately' => ['nullable', 'boolean'], 'reason' => ['nullable', 'string', 'max:255']]);
+        $data = $request->validate(['immediately' => ['nullable', 'boolean'], 'reason' => ['nullable', 'string', 'max:255'], 'refund' => ['nullable', 'boolean']]);
+        $result = $cancellations->cancel($service, (bool) ($data['immediately'] ?? false), $data['reason'] ?? null, isset($data['refund']) ? (bool) $data['refund'] : null);
+        $this->audit('service.cancel', $service);
 
-        return $this->respond($this->provisioning->cancel($service, (bool) ($data['immediately'] ?? false), $data['reason'] ?? null), 'cancel');
+        return (new ServiceResource($result['service']->refresh()->load('product')))->additional(['meta' => ['refund' => $result['refund']]]);
     }
 
     /** Push the end of a running trial back by N days (the first invoice is raised on the new date). */

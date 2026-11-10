@@ -69,9 +69,9 @@ class SupportTicketsTest extends TestCase
 
     public function test_dashboard_card_and_nav_link_only_when_enabled(): void
     {
-        $this->actingAs($this->user)->get(route('portal.dashboard'))->assertOk()->assertSee('Open support tickets')->assertSee(route('portal.tickets.index'), false);
+        $this->actingAs($this->user)->get(route('portal.dashboard'))->assertOk()->assertSee('Recent support tickets')->assertSee(route('portal.tickets.index'), false);
         Settings::set('support.enabled', '0');
-        $this->actingAs($this->user)->get(route('portal.dashboard'))->assertOk()->assertDontSee('Open support tickets')->assertDontSee(route('portal.tickets.index'), false);
+        $this->actingAs($this->user)->get(route('portal.dashboard'))->assertOk()->assertDontSee('Recent support tickets')->assertDontSee(route('portal.tickets.index'), false);
     }
 
     public function test_service_page_offers_get_help_link(): void

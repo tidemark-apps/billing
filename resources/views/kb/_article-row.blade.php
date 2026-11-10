@@ -1,0 +1,1 @@
+<li><a href="{{ $kb->articleUrl($a) }}"><b>{{ $a->title }}</b>@unless ($a->isPublished()) <span class="pill">Draft</span>@endunless @if (empty($compact) && $a->summary)<span class="muted">{{ $a->summary }}</span>@endif</a></li>

@@ -6,8 +6,8 @@ use App\Http\Controllers\Admin\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 // ---- settings --------------------------------------------------------------------------------------------------
-Route::get('settings/{section?}', [SettingsController::class, 'show'])->where('section', 'general|billing|email|payments|security|support|system')->name('settings.index');
-Route::put('settings/{section}', [SettingsController::class, 'update'])->where('section', 'general|billing|email|payments|security|support|system')->name('settings.update');
+Route::get('settings/{section?}', [SettingsController::class, 'show'])->where('section', 'general|billing|email|payments|security|support|knowledgebase|system')->name('settings.index');
+Route::put('settings/{section}', [SettingsController::class, 'update'])->where('section', 'general|billing|email|payments|security|support|knowledgebase|system')->name('settings.update');
 Route::post('settings/email/test', [SettingsController::class, 'testEmail'])->name('settings.email.test');
 Route::post('settings/system/cron-token', [SettingsController::class, 'regenerateCronToken'])->name('settings.cron-token');
 Route::post('settings/system/run', [SettingsController::class, 'runBilling'])->name('settings.run');

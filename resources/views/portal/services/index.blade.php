@@ -1,7 +1,7 @@
 @extends('layouts.app', ['area' => 'portal'])
-@section('title', 'Services')
+@section('title', 'My services')
 @section('content')
-<x-page-head title="Services" sub="Everything you have ordered, what it costs and when it renews."><a class="btn primary" href="{{ route('portal.store') }}">Order services</a></x-page-head>
+<x-page-head title="My services" sub="Everything you have ordered, what it costs and when it renews."><a class="btn primary" href="{{ route('portal.store') }}">Order services</a></x-page-head>
 <x-view-tabs :tabs="['' => 'All', 'active' => 'Active', 'pending' => 'Pending', 'suspended' => 'Suspended', 'ended' => 'Cancelled']" :current="$status" :counts="$counts" param="status" label="Service status" />
 <x-card :flush="true">
 @if ($services->isEmpty())

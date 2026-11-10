@@ -1,7 +1,7 @@
 @extends('layouts.app', ['area' => 'portal'])
-@section('title', 'New ticket')
+@section('title', 'Open a ticket')
 @section('content')
-<x-page-head title="New ticket" :back="route('portal.tickets.index')" back-label="Tickets" />
+<x-page-head title="Open a ticket" :back="route('portal.tickets.index')" back-label="Tickets" />
 @if ($departments->isEmpty())
 <x-card><x-empty icon="life-buoy" title="Support is not available" text="There are no departments accepting tickets right now." /></x-card>
 @else
@@ -13,12 +13,12 @@
             <input type="hidden" name="department" value="{{ $selected->slug }}">
             <div><span class="muted small">Department</span><div><b>{{ $selected->name }}</b></div></div>
         @elseif ($departments->count() <= 6)
-            <div><b>Who should help?</b>
-                <div class="choice-group mt-8" role="radiogroup" aria-label="Who should help?">
+            <div>
+                <fieldset class="choice-group"><legend>Who should help?</legend>
                     @foreach ($departments as $d)
                     <label class="choice"><input type="radio" name="department" value="{{ $d->slug }}" data-dept-radio @checked(old('department', $selected?->slug) === $d->slug)><span><b>{{ $d->name }}</b>@if ($d->description)<span class="help">{{ $d->description }}</span>@endif</span></label>
                     @endforeach
-                </div>
+                </fieldset>
                 @error('department')<span class="field-error">{{ $message }}</span>@enderror
             </div>
         @else

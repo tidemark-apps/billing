@@ -6,6 +6,7 @@ use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Models\Product;
 use App\Models\Service;
+use App\Services\Cancellations;
 use App\Services\PlanChangeService;
 use App\Services\ProvisioningService;
 use App\Support\Activity;
@@ -14,7 +15,7 @@ use Illuminate\Http\Request;
 
 class ServiceController extends PortalController
 {
-    public function __construct(private readonly ProvisioningService $provisioning, private readonly PlanChangeService $planChanges) {}
+    public function __construct(private readonly ProvisioningService $provisioning, private readonly PlanChangeService $planChanges, private readonly Cancellations $cancellations) {}
 
     public function index(Request $request)
     {
@@ -57,6 +58,7 @@ class ServiceController extends PortalController
             'scheduledChange' => $service->scheduledChange()?->load('toProduct'),
             'preview' => $preview,
             'selected' => $selected,
+            'refundPreview' => Cancellations::refundsByDefault() && $service->status === ServiceStatus::Active ? $this->cancellations->refundPreview($service) : null,
         ]);
     }
 
@@ -82,14 +84,15 @@ class ServiceController extends PortalController
     public function cancel(Request $request, string $service): RedirectResponse
     {
         $service = $this->service($service);
-        $data = $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:255'], 'when' => ['nullable', 'in:now,end']]);
         if (! in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending], true)) {
             return back()->with('error', 'This service cannot be cancelled.');
         }
-        $this->provisioning->cancel($service, false, $data['reason'] ?? null);
+        $result = $this->cancellations->cancel($service, Cancellations::customerCancelsNow($data['when'] ?? null), $data['reason'] ?? null);
         Activity::log('service.cancel_requested', $service, 'Customer requested cancellation');
+        $service = $result['service']->refresh();
 
-        return redirect()->route('portal.services.show', $service)->with('status', $service->refresh()->cancel_at_period_end ? 'Cancellation scheduled for the end of the billing period.' : 'Service cancelled.');
+        return redirect()->route('portal.services.show', $service)->with('status', $service->cancel_at_period_end ? 'Cancellation scheduled for the end of the billing period.' : 'Service cancelled.'.Cancellations::describe($result['refund']));
     }
 
     public function previewPlan(Request $request, string $service)

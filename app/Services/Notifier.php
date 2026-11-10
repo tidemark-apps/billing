@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\BillingMail;
+use App\Mail\TicketReplyMail;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PlanChange;
@@ -142,12 +143,7 @@ class Notifier
     /** A staff reply, emailed to the customer. */
     public function ticketReplyToCustomer(Ticket $ticket, TicketMessage $message): void
     {
-        $count = $message->attachments()->count();
-        $this->ticketMail($ticket, $message, $this->ticketSubject($ticket), 'New reply on '.$ticket->number, array_filter([
-            $message->body,
-            $count > 0 ? $count.' attachment'.($count === 1 ? '' : 's').' — open the ticket to download '.($count === 1 ? 'it' : 'them').'.' : null,
-            $ticket->is_locked ? 'This ticket is locked, so replies are closed.' : 'Reply to this email to answer.',
-        ]), 'View ticket', 'staff');
+        $this->ticketMail($ticket, $message, $this->ticketSubject($ticket), '', [], '', plain: true);
     }
 
     public function ticketClosed(Ticket $ticket): void
@@ -194,7 +190,7 @@ class Notifier
     }
 
     /** Customer-facing ticket email: Reply-To is the department address, with Message-ID/In-Reply-To so mail clients thread it. */
-    private function ticketMail(Ticket $ticket, ?TicketMessage $message, string $subject, string $heading, array $lines, string $action, ?string $only = null): void
+    private function ticketMail(Ticket $ticket, ?TicketMessage $message, string $subject, string $heading, array $lines, string $action, ?string $only = null, bool $plain = false): void
     {
         if (! Settings::bool('mail.enabled', true) || $ticket->requester_email === '') {
             return;
@@ -203,11 +199,14 @@ class Notifier
         $messageId = $message ? 'tkt-'.$ticket->uuid.'-'.$message->id.'@'.$host : null;
         $previous = $ticket->messages()->whereNotNull('message_id')->when($message, fn ($q) => $q->where('id', '<', $message->id))->latest('id')->value('message_id');
         try {
-            Mail::to($ticket->requester_email)->send(new BillingMail(
-                $subject, $heading, array_merge(['##- Please type your reply above this line -##'], $lines),
-                $action, $ticket->client_id ? url('/portal/tickets/'.$ticket->uuid) : null, [],
-                $ticket->department?->email, $messageId, $previous ? trim($previous, '<>') : null,
-            ));
+            $url = $ticket->client_id ? url('/portal/tickets/'.$ticket->uuid) : null;
+            $mail = $plain && $message
+                ? new TicketReplyMail($ticket, $message, $subject, $url, $ticket->department?->email, $messageId, $previous ? trim($previous, '<>') : null)
+                : new BillingMail(
+                    $subject, $heading, array_merge(['##- Please type your reply above this line -##'], $lines),
+                    $action, $url, [], $ticket->department?->email, $messageId, $previous ? trim($previous, '<>') : null,
+                );
+            Mail::to($ticket->requester_email)->send($mail);
             if ($message && $messageId && $message->message_id === null) {
                 $message->update(['message_id' => $messageId]);
             }

@@ -4,11 +4,10 @@
 <head>@include('partials.head', ['title' => trim($__env->yieldContent('title')) ?: null])</head>
 <body class="auth-body">
 <main class="auth-card {{ trim($__env->yieldContent('wide')) ? 'wide' : '' }}">
-    <a class="brand big" href="{{ url('/') }}">
+    <a class="brand big auth-brand" href="{{ url('/') }}">
         @if ($logo = \App\Support\Settings::get('company.logo_url'))<img class="brand-logo" src="{{ $logo }}" alt="{{ $company }}">
-        @else<x-lockup :size="34" />@endif
+        @else<span class="auth-name">{{ $company }}</span>@endif
     </a>
-    @if (! $logo && $company && ! str_starts_with(strtolower($company), 'tidemark'))<p class="muted" style="margin:-4px 0 0;text-align:center">{{ $company }}</p>@endif
     @if (session('status'))<div class="notice good"><x-icon name="circle-check" :size="16" /><div>{{ session('status') }}</div></div>@endif
     {{-- A summary only for messages the page doesn't already print next to a field. --}}
     @php($body = $__env->yieldContent('content'))

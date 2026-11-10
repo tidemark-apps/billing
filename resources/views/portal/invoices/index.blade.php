@@ -1,7 +1,7 @@
 @extends('layouts.app', ['area' => 'portal'])
-@section('title', 'Invoices')
+@section('title', 'My invoices')
 @section('content')
-<x-page-head title="Invoices" sub="Pay what is due and download receipts for what you have paid." />
+<x-page-head title="My invoices" sub="Pay what is due and download receipts for what you have paid." />
 <x-view-tabs :tabs="['' => 'All', 'open' => 'Unpaid', 'paid' => 'Paid', 'void' => 'Void']" :current="$status" :counts="$counts" param="status" label="Invoice status" />
 <x-card :flush="true">
 @if ($invoices->isEmpty())

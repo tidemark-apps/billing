@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\TicketStatus;
 use App\Mail\BillingMail;
+use App\Mail\TicketReplyMail;
 use App\Models\Client;
 use App\Models\Department;
 use App\Models\Product;
@@ -159,6 +160,30 @@ class SupportTicketsTest extends TestCase
         $this->actingAs($admin)->get(route('admin.tickets.show', $ticket))->assertOk()
             ->assertSeeInOrder(['aria-label="Conversation"', 'id="composer"', 'aria-label="Ticket details"'], false)
             ->assertSee('Reply to customer')->assertSee('Internal note')->assertSee('More');
+    }
+
+    public function test_staff_reply_email_is_plain_text_with_the_reply_marker_and_footer(): void
+    {
+        Mail::fake();
+        $staff = $this->staff([$this->sales]);
+        $ticket = $this->ticket();
+        Mail::fake();
+        $this->actingAs($staff)->post(route('admin.tickets.reply', $ticket), ['body' => 'We are on it & <b>fixing</b> it'])->assertRedirect();
+
+        Mail::assertSent(TicketReplyMail::class, function (TicketReplyMail $mail) use ($ticket, $staff) {
+            $html = $mail->render();
+            $this->assertStringNotContainsString('btn', $html);
+            $this->assertStringNotContainsString('<img', $html);
+            $this->assertStringContainsString('We are on it &amp; &lt;b&gt;fixing&lt;/b&gt; it', $html);
+            $this->assertStringContainsString('has been updated. To add additional comments, reply to this email.', $html);
+            $mail->assertSeeInText('##- Please type your reply above this line -##');
+            $mail->assertSeeInText($staff->name);
+            $mail->assertSeeInText('We are on it & <b>fixing</b> it');
+            $mail->assertSeeInText($ticket->number);
+            $mail->assertSeeInText('This email is a service from');
+
+            return true;
+        });
     }
 
     public function test_reply_sends_mail_and_sets_status_and_notes_do_not(): void

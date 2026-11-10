@@ -115,3 +115,12 @@ wallet
 webhook
 x
 zoom-in
+
+# knowledge base
+chevron-up
+folder-plus
+folder-open
+thumbs-up
+thumbs-down
+octagon-alert
+text-search

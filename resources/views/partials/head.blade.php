@@ -11,3 +11,4 @@
 <script>(function(){try{var t=localStorage.getItem('tidemark.theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();</script>
 <link rel="preload" href="{{ asset('assets/fonts/geist-variable.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ asset('assets/app.css') }}?v={{ @filemtime(public_path('assets/app.css')) }}">
+@if ($brandCss = \App\Support\Brand::css())<style>{!! $brandCss !!}</style>@endif

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Ticket;
 use App\Plugins\Extensions;
+use App\Services\Knowledgebase\Knowledgebase;
 use App\Services\TicketService;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,42 @@ class Navigation
         }
 
         return array_filter($groups);
+    }
+
+    /**
+     * The client area's top menu, laid out the way hosting customers expect (Home, Services, Billing, Support) with the account
+     * pages in the user menu. Plugin links join as their own dropdowns.
+     *
+     * @return array<int, array{label: string, url: ?string, active: bool, children: array<int, array{label: string, url: string, icon: string}>}>
+     */
+    public static function portal(): array
+    {
+        $link = fn (string $label, string $route, string $icon) => Route::has($route) ? ['label' => $label, 'url' => route($route), 'icon' => $icon] : null;
+        $menu = [
+            ['label' => 'Home', 'url' => route('portal.dashboard'), 'active' => request()->is('portal'), 'children' => []],
+            ['label' => 'Services', 'url' => null, 'active' => request()->is('portal/services*', 'portal/store*', 'portal/order*', 'store', 'store/*'), 'children' => [
+                $link('My services', 'portal.services.index', 'boxes'),
+                $link('Order new services', 'portal.store', 'shopping-cart'),
+            ]],
+            ['label' => 'Billing', 'url' => null, 'active' => request()->is('portal/invoices*', 'portal/quotes*', 'portal/payment-methods*'), 'children' => [
+                $link('My invoices', 'portal.invoices.index', 'receipt'),
+                $link('My quotes', 'portal.quotes.index', 'file-text'),
+                $link('Payment methods', 'portal.payment-methods.index', 'credit-card'),
+            ]],
+            ['label' => 'Support', 'url' => null, 'active' => request()->is('portal/tickets*', 'kb*'), 'children' => array_merge(
+                TicketService::enabled() ? [$link('My tickets', 'portal.tickets.index', 'life-buoy'), $link('Open a ticket', 'portal.tickets.create', 'plus')] : [],
+                Knowledgebase::enabled() ? [$link('Knowledge base', 'kb.index', 'book-open')] : [],
+            )],
+        ];
+        foreach (app(Extensions::class)->menu('portal', auth()->user()) as $group => $items) {
+            $menu[] = ['label' => $group, 'url' => null, 'active' => collect($items)->contains('active', true), 'children' => collect($items)->map(fn ($i) => ['label' => $i['label'], 'url' => $i['url'], 'icon' => $i['icon'] ?? 'puzzle'])->all()];
+        }
+        foreach ($menu as &$m) {
+            $m['children'] = array_values(array_filter($m['children']));
+        }
+        unset($m);
+
+        return array_values(array_filter($menu, fn ($m) => $m['url'] || $m['children']));
     }
 
     /** The Support group: only while tickets are switched on. Tickets carries the count waiting for staff. @return array<int, array<int, mixed>> */
@@ -68,6 +105,7 @@ class Navigation
                     ['Servers', 'admin.servers.index', 'server', 'admin/servers*'],
                 ],
                 'Support' => self::support(),
+                'Knowledge base' => Knowledgebase::enabled() ? [['Articles', 'admin.kb.index', 'book-open', 'admin/kb*']] : [],
                 'System' => [
                     ['Staff', 'admin.staff.index', 'id-card', 'admin/staff*', 'admin'],
                     ['Plugins', 'admin.plugins.index', 'puzzle', 'admin/plugins*'],
@@ -85,7 +123,7 @@ class Navigation
                 ['Quotes', 'portal.quotes.index', 'file-text', 'portal/quotes*'],
             ],
             'Shop' => [['Order services', 'portal.store', 'shopping-cart', 'portal/store*']],
-            'Support' => TicketService::enabled() ? [['Tickets', 'portal.tickets.index', 'life-buoy', 'portal/tickets*']] : [],
+            'Support' => array_merge(TicketService::enabled() ? [['Tickets', 'portal.tickets.index', 'life-buoy', 'portal/tickets*']] : [], Knowledgebase::enabled() ? [['Help center', 'kb.index', 'book-open', 'kb*']] : []),
             'Settings' => [
                 ['Profile', 'portal.profile', 'user', 'portal/profile*'],
                 ['Payment methods', 'portal.payment-methods.index', 'credit-card', 'portal/payment-methods*'],

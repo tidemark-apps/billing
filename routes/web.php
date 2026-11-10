@@ -57,3 +57,5 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(bas
 Route::middleware(['auth', 'customer'])->prefix('portal')->name('portal.')->group(base_path('routes/portal.php'));
 // public storefront routes (no auth) live in routes/portal.php's sibling file
 Route::group([], base_path('routes/store.php'));
+// public knowledge base (no auth unless Settings → Knowledge base turns guest access off): kb.*
+Route::group([], base_path('routes/kb.php'));

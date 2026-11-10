@@ -4,7 +4,7 @@ namespace App\Support;
 
 /**
  * Tiny schema helper for settings forms. A field is an array:
- *   key, label, type (text|password|textarea|select|checkbox|number|url|email), options (for select), default,
+ *   key, label, type (text|password|textarea|select|checkbox|number|url|email|color), options (for select), default,
  *   help, placeholder, required.
  * Plugins, gateways, modules and servers all describe their inputs this way, and the admin UI renders them.
  */
@@ -27,6 +27,7 @@ class Fields
                 'number' => 'numeric',
                 'url' => 'url',
                 'email' => 'email',
+                'color' => 'regex:/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/',
                 'select' => 'in:'.implode(',', array_keys($f['options'] ?? [])),
                 default => ['string', 'max:5000'],
             };

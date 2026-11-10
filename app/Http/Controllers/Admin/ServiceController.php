@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
 use App\Services\BillingRunner;
+use App\Services\Cancellations;
 use App\Services\InternalAccounts;
 use App\Services\Notifier;
 use App\Services\PlanChangeService;
@@ -24,7 +25,7 @@ use Illuminate\Validation\Rule;
 
 class ServiceController extends Controller
 {
-    public function __construct(private readonly ProvisioningService $provisioning, private readonly PlanChangeService $planChanges) {}
+    public function __construct(private readonly ProvisioningService $provisioning, private readonly PlanChangeService $planChanges, private readonly Cancellations $cancellations) {}
 
     private const SORTS = ['service', 'client', 'status', 'cycle', 'price', 'due'];
 
@@ -168,6 +169,7 @@ class ServiceController extends Controller
 
         return view('admin.services.show', [
             'service' => $service,
+            'refundPreview' => $service->status === ServiceStatus::Active ? $this->cancellations->refundPreview($service) : null,
             'module' => $module,
             'servers' => $module?->usesServers() ? Server::where('module', $module->key())->orderBy('name')->pluck('name', 'id')->all() : [],
             'cycles' => BillingCycle::options(),
@@ -310,10 +312,16 @@ class ServiceController extends Controller
 
     public function cancel(Request $request, Service $service): RedirectResponse
     {
-        $data = $request->validate(['immediately' => ['nullable', 'boolean'], 'reason' => ['nullable', 'string', 'max:255']]);
+        $data = $request->validate(['immediately' => ['nullable', 'boolean'], 'reason' => ['nullable', 'string', 'max:255'], 'refund' => ['nullable', 'boolean']]);
         $now = $request->boolean('immediately');
+        $result = $this->cancellations->cancel($service, $now, $data['reason'] ?? null, $request->boolean('refund'));
+        $service = $result['service'];
+        Activity::log('service.cancel', $service);
+        $ok = $now ? $service->status === ServiceStatus::Cancelled : $service->cancel_at_period_end;
 
-        return $this->lifecycle($service, 'cancel', fn () => $this->provisioning->cancel($service, $now, $data['reason'] ?? null), $now ? 'cancelled' : 'set to cancel at the end of the billing period', fn (Service $s) => $now ? $s->status === ServiceStatus::Cancelled : $s->cancel_at_period_end);
+        return back()->with($ok ? 'status' : 'error', $ok
+            ? 'Service '.($now ? 'cancelled' : 'set to cancel at the end of the billing period').'.'.Cancellations::describe($result['refund'])
+            : 'Could not cancel the service: '.($service->provision_error ?: 'not allowed in its current state.'));
     }
 
     public function action(Request $request, Service $service): RedirectResponse

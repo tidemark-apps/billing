@@ -5814,7 +5814,7 @@
                 "tags": [
                     "Services"
                 ],
-                "summary": "Cancel a service (at period end unless immediately)",
+                "summary": "Cancel a service. When it takes effect follows Settings → Billing → Cancellations: at the end of the billing term, immediately, or by the customer's choice (immediately:true; refused with 422 when only end-of-term is allowed). meta.refund reports an automatic refund of the unused time, if one was made",
                 "operationId": "clientServicesCancel",
                 "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
                 "security": [
@@ -14066,7 +14066,7 @@
                 "tags": [
                     "Admin: Services"
                 ],
-                "summary": "Cancel a service (at period end unless immediately)",
+                "summary": "Cancel a service (at period end unless immediately). With immediately:true, refund:true refunds the unused time of the current period (default: the Cancellations setting); meta.refund reports the result",
                 "operationId": "adminServicesCancel",
                 "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
                 "security": [
@@ -14096,6 +14096,9 @@
                                     },
                                     "reason": {
                                         "type": "string"
+                                    },
+                                    "refund": {
+                                        "type": "boolean"
                                     }
                                 }
                             }

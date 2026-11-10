@@ -4,6 +4,8 @@ use App\Http\Middleware\AuthenticateApi;
 use App\Http\Middleware\EnsureActive;
 use App\Http\Middleware\EnsureCustomer;
 use App\Http\Middleware\EnsureInstalled;
+use App\Http\Middleware\EnsureKnowledgebaseEnabled;
+use App\Http\Middleware\EnsureKnowledgebaseReadable;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureSupportEnabled;
 use App\Http\Middleware\RequireAbility;
@@ -40,6 +42,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.api' => AuthenticateApi::class,
             'ability' => RequireAbility::class,
             'support' => EnsureSupportEnabled::class,
+            'kb.enabled' => EnsureKnowledgebaseEnabled::class,
+            'kb.readable' => EnsureKnowledgebaseReadable::class,
         ]);
         // A password may legitimately start or end with a space.
         $middleware->trimStrings(except: ['imap_password']);

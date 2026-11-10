@@ -8,7 +8,7 @@
 <head>@include('partials.head', ['title' => trim($__env->yieldContent('title')) ?: null])@stack('head')</head>
 <body>
 <header class="topbar"><div class="topbar-in">
-    <a class="brand" href="{{ url('/') }}">@if ($logo)<img class="brand-logo" src="{{ $logo }}" alt="{{ $company }}">@else<x-logo :size="24" /><span class="brand-name" style="margin-left:10px">{{ $company }}</span>@endif</a>
+    <a class="brand" href="{{ url('/') }}">@if ($logo)<img class="brand-logo" src="{{ $logo }}" alt="{{ $company }}">@else<span class="brand-name">{{ $company }}</span>@endif</a>
     <div class="crumbs"></div>
     <div class="tb-right">
         @auth<a class="btn sm" href="{{ route('portal.dashboard') }}">Client area</a>

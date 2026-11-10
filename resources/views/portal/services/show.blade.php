@@ -66,10 +66,31 @@
 @include('portal.usage.panel', ['service' => $service])
 {!! extensions('portal.service', ['service' => $service]) !!}
 @if (in_array($service->status->value, ['active', 'suspended', 'pending']) && ! $service->cancel_at_period_end)
-<form class="card setting danger-zone" method="POST" action="{{ route('portal.services.cancel', $service) }}" data-confirm="Cancel this service? Cancellation takes effect at the end of the billing period." data-danger data-confirm-label="Cancel service">@csrf
-    <div class="setting-h"><h2>Cancel service</h2><p>Your service stays active until the end of the paid period, unless it hasn't started yet.</p></div>
-    <div class="setting-b"><x-field name="reason" label="Reason (optional)" /></div>
-    <div class="setting-f"><span></span><button class="btn destructive sm" type="submit">Request cancellation</button></div>
+@php
+    $cancelMode = \App\Services\Cancellations::mode();
+    $endsNow = $service->status->value === 'pending' || ! $service->next_due_date || $service->onTrial();
+    $cancelNow = $endsNow || $cancelMode === 'immediate';
+    $cancelChoice = ! $endsNow && $cancelMode === 'customer_choice';
+    $termEnd = $service->next_due_date?->format('j M Y');
+    $refundNote = $refundPreview ? 'You will be refunded '.money($refundPreview['amount'], $refundPreview['currency']).' for the '.$refundPreview['remaining_days'].' unused '.\Illuminate\Support\Str::plural('day', $refundPreview['remaining_days']).', to your original payment method.' : null;
+@endphp
+<form class="card setting danger-zone" method="POST" action="{{ route('portal.services.cancel', $service) }}" data-confirm="{{ $cancelChoice ? 'Cancel this service?' : ($cancelNow ? 'Cancel this service now? It stops working straight away.' : 'Cancel this service? It stays active until '.$termEnd.'.') }}" data-danger data-confirm-label="Cancel service">@csrf
+    <div class="setting-h"><h2>Cancel service</h2><p>
+        @if ($cancelChoice)Choose when it ends.
+        @elseif ($cancelNow)Your service ends straight away.@if ($cancelMode === 'immediate' && $refundNote) {{ $refundNote }}@endif
+        @else Your service stays active until the end of the paid period{{ $termEnd ? ' ('.$termEnd.')' : '' }}.
+        @endif
+    </p></div>
+    <div class="setting-b stack">
+        @if ($cancelChoice)
+        <fieldset class="choice-group"><legend>When should it end?</legend>
+            <label class="choice"><input type="radio" name="when" value="end" checked><span><b>At the end of the billing term</b><span class="help">Stays active until {{ $termEnd }}, then stops. No further invoices.</span></span></label>
+            <label class="choice"><input type="radio" name="when" value="now"><span><b>Immediately</b><span class="help">Stops working now.@if ($refundNote) {{ $refundNote }}@endif</span></span></label>
+        </fieldset>
+        @endif
+        <x-field name="reason" label="Reason (optional)" />
+    </div>
+    <div class="setting-f"><span></span><button class="btn destructive sm" type="submit">{{ $cancelNow || $cancelChoice ? 'Cancel service' : 'Request cancellation' }}</button></div>
 </form>
 @endif
 @endsection

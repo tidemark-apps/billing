@@ -4,7 +4,7 @@
     $stamp = match ($status) { 'paid' => 'Paid', 'void' => 'Void', 'uncollectible' => 'Uncollectible', 'draft' => 'Draft', default => $invoice->isOverdue() ? 'Overdue' : null };
     $stampTone = match ($stamp) { 'Paid' => 'good', 'Overdue', 'Uncollectible' => 'bad', default => '' };
     $meta = array_filter([
-        'Issued' => $invoice->issue_date?->format('j M Y'),
+        'Date' => $invoice->issue_date?->format('j M Y'),
         'Due' => $invoice->due_date?->format('j M Y'),
         'Reference' => $invoice->reference,
     ]);
@@ -12,17 +12,11 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Invoice {{ $invoice->displayNumber() }}</title>@include('pdf._style')</head>
 <body>
-@include('pdf._head', ['title' => 'Invoice '.$invoice->displayNumber()])
-<div class="bill">
-    <div class="label">Bill to</div>
-    <b>{{ $invoice->client->displayName() }}</b>
-    @foreach ($invoice->client->addressLines() as $line)<div class="muted small">{{ $line }}</div>@endforeach
-    @if ($invoice->client->tax_id)<div class="muted small">Tax ID: {{ $invoice->client->tax_id }}</div>@endif
-</div>
+@include('pdf._head', ['docType' => 'Invoice', 'number' => $invoice->displayNumber(), 'toLabel' => 'Issued to', 'client' => $invoice->client])
 <table class="items">
-    <thead><tr><th style="width:52%">Description</th><th class="right">Qty</th><th class="right">Unit price</th><th class="right">Amount</th></tr></thead>
+    <thead><tr><th style="width:50%">Description</th><th>Unit cost</th><th class="right qty">Qty</th><th class="right">Amount</th></tr></thead>
     <tbody>@foreach ($invoice->items as $item)
-        <tr><td class="pre">{{ $item->description }}</td><td class="right">{{ $qty($item->quantity) }}</td><td class="right">{{ money($item->unit_price, $invoice->currency) }}</td><td class="right">{{ money($item->total, $invoice->currency) }}</td></tr>
+        <tr><td class="pre">{{ $item->description }}</td><td class="nowrap">{{ money($item->unit_price, $invoice->currency) }}</td><td class="qty">{{ $qty($item->quantity) }}</td><td class="right">{{ money($item->total, $invoice->currency) }}</td></tr>
     @endforeach</tbody>
 </table>
 <table class="totals">
@@ -38,5 +32,5 @@
 @if ($paymentInstructions !== '' && $status !== 'paid' && $status !== 'void')<div class="box"><b>Payment instructions</b><div class="muted small pre">{{ $paymentInstructions }}</div></div>@endif
 @if ($invoice->notes)<div class="box"><b>Notes</b><div class="muted small pre">{{ $invoice->notes }}</div></div>@endif
 @if ($invoice->terms)<div class="box"><b>Terms</b><div class="muted small pre">{{ $invoice->terms }}</div></div>@endif
-<div class="foot">{{ $company['name'] }} &middot; Invoice {{ $invoice->displayNumber() }}</div>
+@include('pdf._foot', ['thanks' => $status === 'paid' ? 'Thank you for your payment!' : 'Thank you for your business!'])
 </body></html>

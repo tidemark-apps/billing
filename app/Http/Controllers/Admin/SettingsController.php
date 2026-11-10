@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Plugins\GatewayRegistry;
 use App\Services\BillingRunner;
+use App\Services\Cancellations;
 use App\Services\Notifier;
 use App\Support\Activity;
+use App\Support\Brand;
 use App\Support\Fields;
 use App\Support\Money;
 use App\Support\Settings;
@@ -17,7 +19,7 @@ use Illuminate\Support\Str;
 
 class SettingsController extends Controller
 {
-    private const SECTIONS = ['general' => 'General', 'billing' => 'Billing', 'email' => 'Email', 'payments' => 'Payments', 'security' => 'Security', 'support' => 'Support', 'system' => 'System'];
+    private const SECTIONS = ['general' => 'General', 'billing' => 'Billing', 'email' => 'Email', 'payments' => 'Payments', 'security' => 'Security', 'support' => 'Support', 'knowledgebase' => 'Knowledge base', 'system' => 'System'];
 
     public function show(Request $request, GatewayRegistry $gateways, ?string $section = 'general')
     {
@@ -53,6 +55,9 @@ class SettingsController extends Controller
                 continue; // absent, or a password left blank to keep the stored one
             }
             $value = $collected[$formKey];
+            if (($f['type'] ?? 'text') === 'color') {
+                $value = Brand::normalize($value);
+            }
             if (($f['type'] ?? 'text') === 'checkbox') {
                 Settings::set($key, $value ? 'true' : 'false');
             } elseif ($value === null || $value === '') {
@@ -167,6 +172,7 @@ class SettingsController extends Controller
                     $f('company.email', 'Contact email', ['type' => 'email', 'help' => 'Where admin notifications (accepted quotes, provisioning failures) are sent.']),
                     $f('company.address', 'Address', ['type' => 'textarea', 'help' => 'Printed on invoices.']),
                     $f('company.tax_id', 'Tax / VAT number'),
+                    $f('company.brand_color', 'Brand colour', ['type' => 'color', 'default' => '#0e7c86', 'help' => 'Buttons, links and highlights across the client area, emails and PDFs. If a colour would be hard to read, it is nudged to the closest one that is not. Clear it to go back to Tidemark teal.']),
                     $f('company.logo_url', 'Logo URL', ['type' => 'url', 'help' => 'A link to a logo image for the client area and login page. Leave blank to use the Tidemark mark.']),
                 ]],
                 ['title' => 'Client accounts', 'description' => 'How customers get into the client area.', 'fields' => [
@@ -196,6 +202,10 @@ class SettingsController extends Controller
                     $f('billing.customer_plan_changes', 'Let customers change plan themselves', ['type' => 'checkbox', 'default' => true, 'help' => 'Also needs "Customers can change plan" turned on for the product. Staff can always change plans.']),
                     $f('billing.trial_reminder_days', 'Remind customers before a trial ends', ['suffix' => 'days before', 'type' => 'number', 'default' => 3, 'help' => '0 turns trial reminders off.']),
                     $f('billing.trial_invoice_days_before', 'Create the first invoice', ['suffix' => 'days before trial ends', 'type' => 'number', 'default' => 0, 'help' => '0 invoices when the trial ends.']),
+                ]],
+                ['title' => 'Cancellations', 'description' => 'How customers end their services.', 'fields' => [
+                    $f('billing.cancel_mode', 'When a cancellation takes effect', ['type' => 'select', 'options' => Cancellations::MODES, 'default' => 'end_of_term', 'help' => 'Customers keep a service they paid for until the end of the term, or can end it right away. "Let the customer choose" shows both options. Staff can always choose.']),
+                    $f('billing.cancel_refund', 'Refund the unused time when a service is cancelled immediately', ['type' => 'checkbox', 'default' => false, 'help' => 'Prorated by the day from the latest payment and sent back through the original payment method. Staff can untick it for a single cancellation.']),
                 ]],
                 ['title' => 'Automatic payments', 'description' => 'Charging customers\' saved payment methods. Runs hourly from the cron job.', 'fields' => [
                     $f('autopay.enabled', 'Charge saved payment methods automatically', ['type' => 'checkbox', 'default' => true, 'help' => 'Only for customers who turned automatic payment on for a saved method.']),
@@ -235,6 +245,14 @@ class SettingsController extends Controller
                     $f('support.max_attachment_mb', 'Largest file (MB)', ['type' => 'number', 'default' => 10]),
                     $f('support.max_attachments', 'Files per message', ['type' => 'number', 'default' => 5, 'help' => '0 turns attachments off.']),
                     $f('support.allowed_extensions', 'Allowed file types', ['placeholder' => 'png, jpg, pdf, txt, zip', 'help' => 'Comma-separated extensions. Leave blank to allow anything that is not blocked. Executables, scripts, HTML and SVG files are always refused, whatever you list here.']),
+                ]],
+            ],
+            'knowledgebase' => [
+                ['title' => 'Knowledge base', 'description' => 'Help articles for your customers, written in Markdown and organised in nested categories. While this is off, every knowledge base page is hidden.', 'fields' => [
+                    $f('kb.enabled', 'Enable the knowledge base', ['type' => 'checkbox', 'default' => false, 'help' => 'Adds Knowledge base to the admin menu and Help center to the client area. The public address is /kb.']),
+                    $f('kb.public', 'Let guests read it', ['type' => 'checkbox', 'default' => true, 'help' => 'When off, only people who are signed in can read articles. Drafts and hidden categories are never shown to customers either way.']),
+                    $f('kb.title', 'Title', ['default' => 'Help center', 'help' => 'The heading on the knowledge base home page.']),
+                    $f('kb.intro', 'Introduction', ['type' => 'textarea', 'default' => 'Guides and answers to common questions.', 'help' => 'One or two sentences shown under the title.']),
                 ]],
             ],
             default => [],

@@ -1,7 +1,7 @@
 @extends('layouts.app', ['area' => 'portal'])
-@section('title', 'Profile')
+@section('title', 'Account details')
 @section('content')
-<x-page-head title="Profile" />
+<x-page-head title="Account details" />
 <x-setting title="Your details" description="Used on invoices and for contacting you." :action="route('portal.profile.update')">
     <div class="grid2">
         <x-field name="name" label="Name" :value="$user->name" required autocomplete="name" /><x-field name="email" label="Email" type="email" :value="$user->email" required autocomplete="email" />

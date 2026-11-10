@@ -34,6 +34,21 @@
             <select id="{{ $id }}" name="{{ $name }}" @required($required) {{ $aria }} {{ $attributes }}>
                 @foreach ($options as $k => $v)<option value="{{ $k }}" @selected((string) $current === (string) $k)>{{ $v }}</option>@endforeach
             </select>
+        @elseif ($type === 'color')
+            @php($hex = \App\Support\Brand::normalize($current))
+            <div class="color-field" data-color-field>
+                <input type="color" aria-label="Pick a colour" value="{{ $hex ?? \App\Support\Brand::DEFAULT }}" tabindex="-1">
+                <input id="{{ $id }}" type="text" name="{{ $name }}" value="{{ $current }}" maxlength="7" spellcheck="false" autocomplete="off" placeholder="{{ \App\Support\Brand::DEFAULT }}" {{ $aria }} class="sf-short mono">
+            </div>
+            @if ($hex)
+                @php($pal = \App\Support\Brand::palette($hex))
+                <div class="color-preview" aria-label="How this colour is used">
+                    @foreach (['light' => 'Light theme', 'dark' => 'Dark theme'] as $t => $themeName)
+                        <span class="color-chip" style="--c: {{ $pal[$t]['brand'] }}; --f: {{ $pal[$t]['foreground'] }}">{{ $themeName }} · {{ $pal[$t]['brand'] }}</span>
+                    @endforeach
+                </div>
+                @if ($pal['adjusted']['light'] || $pal['adjusted']['dark'])<span class="help">Adjusted so text stays readable: text and links use {{ $pal['light']['ink'] }} on light and {{ $pal['dark']['ink'] }} on dark.</span>@endif
+            @endif
         @elseif ($type === 'textarea')
             <textarea id="{{ $id }}" name="{{ $name }}" rows="3" @required($required) placeholder="{{ $placeholder }}" {{ $aria }} {{ $attributes }}>{{ $current }}</textarea>
         @elseif ($suffix)
