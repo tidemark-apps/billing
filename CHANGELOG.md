@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-10
+
 ### Added
 - Hosted installs add the owner's contact email as Reply-To on outgoing mail, since mail goes through the host's shared relay. The plan file can cap outgoing email per day (`limits.emails_per_day`, counted per UTC day; mail over the cap is not sent and a warning is logged). `billing:usage` reports `emails_per_day` sent today. In hosted mode the From name defaults to the business name.
 
