@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Role;
+use App\Support\Plan;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,6 +62,18 @@ class User extends Authenticatable
     public function hasTwoFactor(): bool
     {
         return $this->two_factor_secret !== null && $this->two_factor_confirmed_at !== null;
+    }
+
+    protected static function booted(): void
+    {
+        // A plan can cap staff users: block a new active admin/staff login, or turning a customer or a deactivated user into one.
+        static::saving(function (User $user) {
+            $counts = fn (?Role $role, $active) => in_array($role, [Role::Admin, Role::Staff], true) && $active;
+            $before = $user->exists && $counts($user->getOriginal('role'), $user->getOriginal('is_active'));
+            if ($counts($user->role, $user->is_active) && ! $before) {
+                Plan::ensureCanAdd('staff');
+            }
+        });
     }
 
     public function isStaff(): bool

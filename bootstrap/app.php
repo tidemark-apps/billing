@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\PlanLimitReached;
 use App\Http\Middleware\AuthenticateApi;
 use App\Http\Middleware\EnsureActive;
 use App\Http\Middleware\EnsureCustomer;
@@ -54,6 +55,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
         $exceptions->render(function (Throwable $e, Request $request) {
+            if ($e instanceof PlanLimitReached && ! $request->is('api/*') && ! $request->expectsJson()) {
+                return back()->withInput($request->except('password', 'password_confirmation'))->with('error', $e->getMessage());
+            }
             if (! $request->is('api/*')) {
                 return null;
             }

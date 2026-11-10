@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasUuid;
 use App\Support\Countries;
+use App\Support\Plan;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ class Client extends Model
 
     protected static function booted(): void
     {
+        static::creating(fn () => Plan::ensureCanAdd('clients'));
         // Changing the account's email must reach the places that copied it: the login(s) that used it and the tickets still open.
         static::updated(function (Client $client) {
             if ($client->wasChanged('email')) {

@@ -14,6 +14,10 @@ return [
     // the mail transport (SMTP/sendmail) comes from the environment, not from Settings → Email. Off for self-hosting.
     'hosted' => (bool) env('BILLING_HOSTED', false),
 
+    // Plan limits of a hosted install: a JSON file such as {"name": "starter", "limits": {"clients": 100, "staff": 2}}.
+    // No file means no limits.
+    'plan_file' => env('BILLING_PLAN_FILE'),
+
     // Where plugins live. Each plugin is a folder with a plugin.json manifest.
     'plugins_path' => env('BILLING_PLUGINS_PATH', base_path('plugins')),
 
