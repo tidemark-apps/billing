@@ -4,6 +4,21 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-10
+
+### Added
+- An optional knowledge base (Settings, Knowledge base). Articles are written in Markdown with a Write / Markdown editor, organised in categories that nest to any depth, and published at `/kb`. Tables, task lists, code blocks with a copy button and syntax colours, callouts (note, tip, important, warning, caution), numbered steps, images (drop or paste into the editor), collapsible sections and keyboard keys are supported. Readers get search, a side menu, "On this page", previous/next links and a helpful yes/no vote. A switch controls whether guests can read it; drafts and hidden categories are always staff-only. See `docs/knowledgebase.md`.
+
+### Changed
+
+- Cancellations: Settings, Billing has a new Cancellations section. Choose whether customers cancel at the end of the billing term (the default), immediately, or can pick, and whether an immediate cancellation automatically refunds the unused days of the period. Staff can tick the refund per cancellation, and the API reports it in `meta.refund`. See docs/cancellations.md.
+- Brand colour: Settings, General has a new Brand colour field. Buttons, links and highlights across the app, emails and PDFs use it instead of Tidemark teal. A colour that would be hard to read is nudged to the closest accessible one for each theme (buttons 3:1 against the page, text 4.5:1), and the form shows what will actually be used.
+- Signed-in customers see the order form and the knowledge base inside the client-area layout. Guests keep the plain public pages.
+- The sign-in pages, the client-area top bar and public pages show only the business logo or name. The Tidemark mark no longer appears there.
+- The client area now uses a top menu (Home, Services, Billing, Support) with account pages in the user menu, a breadcrumb bar, and a dashboard of count tiles with services, tickets, unpaid invoices and account details, instead of the admin-style sidebar.
+- Replies to customers on a ticket are now sent as a light, help-desk style email (a "reply above this line" marker, the conversation newest first, a short footer) with a plain-text version, instead of the branded card. Notification emails keep the default template.
+- Invoice and quote PDFs have a new, cleaner layout: a large title with the logo on the right, "issued to" and number/date blocks, a minimal items table, right-aligned totals and the company details pinned at the foot of every page.
+
 ## [0.4.0] - 2026-11-13
 
 ### Changed
