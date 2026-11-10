@@ -8,6 +8,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Hosted mode (`BILLING_HOSTED=true`), for installs run by a hosting provider: the web installer and plugin uploads are closed, the mail transport comes from the environment (the owner can only set the From name), and `billing:install` needs no password.
 - `php artisan billing:login-link <email>`: a signed, expiring, single-use sign-in link. Two-factor authentication still applies.
 - Plan limits: a JSON file named in `BILLING_PLAN_FILE` can cap the number of clients and staff users. Existing records keep working over a limit. With no file there are no limits.
+- Sign-in links from the host (`BILLING_SSO_PUBLIC_KEY`, `/sso`) for the owner and for support sessions, in the token format Tidemark Analytics uses. Support sessions are logged with the reason and ticket and show a banner.
+- A suspended install (`"suspended": true` in the plan file) shows a banner. See `docs/hosting.md`.
 - `php artisan billing:usage`: prints the plan, its limits and current usage as JSON.
 - The Docker image now runs with a read-only root filesystem (`docker run --read-only --tmpfs /tmp --tmpfs /config:uid=1000,gid=1000`, with `/data` as the only volume). The links into `/data` are made when the image is built, and Laravel's caches go to `/tmp`. A hosted install can start unattended from `BILLING_HOSTED` and `BILLING_ADMIN_EMAIL` without a password.
 

@@ -36,6 +36,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'reset'])->name('password.update');
 });
 Route::get('/login/link/{user}', [AuthController::class, 'loginLink'])->middleware('throttle:20,1')->name('login.link');
+Route::get('/sso', [AuthController::class, 'sso'])->middleware('throttle:20,1')->name('sso');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/invoice/{invoice:uuid}', [PublicDocumentController::class, 'invoice'])->name('invoice.public');

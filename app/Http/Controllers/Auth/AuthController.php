@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\HostToken;
 use App\Services\Registration;
 use App\Services\TwoFactor;
 use App\Support\Activity;
@@ -68,6 +70,38 @@ class AuthController extends Controller
         return $this->finishLogin($request, $user, false);
     }
 
+    /**
+     * Sign-in link minted by the host (see HostToken). "customer" signs in the owner; "support" signs in as an administrator for a
+     * support session: the staff member, reason and ticket are written to the activity log and a banner shows for the whole session.
+     */
+    public function sso(Request $request): RedirectResponse
+    {
+        $claims = HostToken::verify((string) $request->query('token'), $request->getHost());
+        abort_unless($claims, 403, 'This sign-in link is invalid, expired or already used.');
+
+        $email = is_string($claims['email'] ?? null) && $claims['email'] !== '' ? $claims['email'] : null;
+        $user = User::query()->where('is_active', true)->where('role', Role::Admin)
+            ->when($email, fn ($q) => $q->where('email', $email))->orderBy('id')->first();
+        abort_unless($user, 403, 'No administrator account matches this sign-in link.');
+
+        if ($claims['kind'] === 'support') {
+            $who = is_array($claims['staff'] ?? null) ? (string) ($claims['staff']['name'] ?? 'Support') : 'Support';
+            Activity::log('auth.support_session', $user, "$who started a support session as {$user->email}", ['staff' => $claims['staff'] ?? null, 'reason' => $claims['reason'] ?? null, 'ticket' => $claims['ticket'] ?? null]);
+            $response = $this->finishLogin($request, $user, false, home: true);
+            $request->session()->put('support_session', $who);
+
+            return $response;
+        }
+        if ($user->hasTwoFactor()) {
+            $request->session()->put('two_factor', ['id' => $user->id, 'expires' => now()->addMinutes(5)->getTimestamp(), 'remember' => false]);
+
+            return redirect()->route('two-factor.challenge');
+        }
+        Activity::log('auth.sso', $user, "{$user->email} signed in from the host's account page");
+
+        return $this->finishLogin($request, $user, false, home: true);
+    }
+
     public function showChallenge(Request $request)
     {
         $user = $this->pendingTwoFactorUser($request);
@@ -113,13 +147,13 @@ class AuthController extends Controller
         return $response;
     }
 
-    private function finishLogin(Request $request, User $user, bool $remember): RedirectResponse
+    private function finishLogin(Request $request, User $user, bool $remember, bool $home = false): RedirectResponse
     {
         Auth::login($user, $remember);
         $request->session()->regenerate();
         $user->forceFill(['last_login_at' => now()])->saveQuietly();
 
-        return redirect()->intended($this->home($user));
+        return $home ? redirect($this->home($user)) : redirect()->intended($this->home($user));
     }
 
     private function pendingTwoFactorUser(Request $request): ?User

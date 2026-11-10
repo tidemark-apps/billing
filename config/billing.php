@@ -18,6 +18,10 @@ return [
     // No file means no limits.
     'plan_file' => env('BILLING_PLAN_FILE'),
 
+    // Base64 Ed25519 public key of the host. Lets the host mint short-lived sign-in links (/sso) for the owner and for support;
+    // the private key never reaches this install. No key means /sso is off.
+    'sso_public_key' => env('BILLING_SSO_PUBLIC_KEY'),
+
     // Where plugins live. Each plugin is a folder with a plugin.json manifest.
     'plugins_path' => env('BILLING_PLUGINS_PATH', base_path('plugins')),
 

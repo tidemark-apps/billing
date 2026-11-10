@@ -94,6 +94,7 @@
         <main class="app-main" id="main" tabindex="-1">
             <div class="main">
                 @include('partials.flash')
+                @include('partials.host-notices')
                 @yield('content')
                 <p class="muted small" style="text-align:center;padding-top:24px">Powered by <a href="https://www.tidemarkanalytics.com" rel="noopener" style="text-decoration:underline;text-underline-offset:3px">Tidemark Billing</a> v{{ config('billing.version') }}</p>
             </div>
