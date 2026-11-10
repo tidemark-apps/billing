@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-10
+
 ### Added
 - `php artisan billing:login-link <email> --reset` prints a link where the user chooses a password, for handing a new hosted install to its owner. How long it lasts is set with `PASSWORD_RESET_EXPIRE` (minutes, default 60).
 
