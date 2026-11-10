@@ -154,7 +154,27 @@ function verify(req, secret) {
 
 ### Events
 
-`client.created`, `invoice.created`, `invoice.paid`, `invoice.voided`, `payment.received`, `payment.refunded`, `quote.sent`, `quote.accepted`, `quote.declined`, `service.created`, `service.activated`, `service.suspended`, `service.unsuspended`, `service.cancelled`, `service.terminated`, `service.provisioning_failed`, `usage.recorded`. Plugins may add more; `GET /admin/events` returns the live catalogue.
+`client.created`, `invoice.created`, `invoice.paid`, `invoice.voided`, `payment.received`, `payment.refunded`, `quote.sent`, `quote.accepted`, `quote.declined`, `service.created`, `service.activated`, `service.suspended`, `service.unsuspended`, `service.cancelled`, `service.terminated`, `service.provisioning_failed`, `service.trial_started`, `service.trial_ending`, `service.trial_converted`, `service.plan_changed`, `service.plan_change_scheduled`, `usage.recorded`. Plugins may add more; `GET /admin/events` returns the live catalogue.
+
+## Trials and plan changes
+
+**Trials.** A product with `trial_days > 0` starts a free trial when a client orders it for the first time (once per client per product). Customer `POST /orders` and admin `POST /admin/services` then return `201` with the provisioned `service` and `"invoice": null` (and `"pay_url": null` for customers); the first invoice is raised when the trial ends. If the product has `trial_requires_payment_method` and the client has no saved payment method the order is a `422` with the reason. Admin orders accept `"trial": false` to bill straight away. The public catalogue shows `trial_days`, and `trial_available` when a customer token is sent (`null` without one). Services expose `on_trial`, `trial_ends_at`, `trial_converted_at`.
+
+Admin (ability `services.write`): `POST /admin/services/{id}/trial/extend {"days": 7}` moves the end of a running trial and its first due date; `POST /admin/services/{id}/trial/end` raises the first invoice now. Both are `422` when the service is not on a trial.
+
+**Plan changes (prorated).** Services carry `scheduled_change` (`{id, to_product, to_cycle, to_amount, effective_date}` or `null`), and customers also see `can_change_plan`. Upgrades are credited for the unused period and invoiced now; downgrades take effect at the next renewal by default. A credit larger than the charge is not refunded or carried forward (`forfeited` in the preview).
+
+| | Admin (staff token) | Client (customer token) |
+| --- | --- | --- |
+| Options | `GET /admin/services/{id}/plan-options` (any active product) | `GET /services/{uuid}/plan-options` (same group, visible products; empty with `can_change_plan: false` when disabled) |
+| Preview | `POST .../plan-change/preview {product_id, billing_cycle, timing?}` | same |
+| Change | `POST .../plan-change` (source `api`; `timing`: `immediate` or `renewal`) | `POST .../plan-change` (source `customer`; downgrades are always at renewal) |
+| Cancel scheduled | `DELETE .../plan-change` | `DELETE .../plan-change` |
+| History | `GET /admin/services/{id}/plan-changes` | n/a |
+
+Abilities: options and preview need `services.read`; changing and cancelling need `services.write`. Customers only reach their own services (`404` otherwise); a plan that is not offered, a disabled feature or a service that cannot change plan is a `422`.
+
+**Override versus plan change.** `PATCH /admin/services/{id}` with `amount` or `billing_cycle` is the override path: it writes exactly what you send, with no proration, no invoice and no events, then re-runs the module's package change. Use it to correct a price or grandfather a customer. `POST /admin/services/{id}/plan-change` is the billing-aware path: it prorates, raises the invoice, schedules downgrades and fires `service.plan_changed` / `service.plan_change_scheduled`.
 
 ## Admin API reference
 
@@ -166,7 +186,7 @@ Everything the admin screens can do is available under `/api/v1/admin` with a st
 | Clients | `GET/POST /clients`, `GET/PATCH/DELETE /clients/{id}` (status and internal notes are plain fields; delete is refused while the client has live services or unpaid invoices), `GET /clients/{id}/tax-rate`; related records via filters: `/services?client_id=`, `/invoices?client_id=`, `/quotes?client_id=`, `/payments?client_id=` |
 | Staff accounts (administrators only; abilities `staff-users.read` / `.write`) | `GET/POST /staff-users` (`role`: `admin`\|`staff`; `password`, or `send_link: true` to email a link), `GET/PATCH /staff-users/{id}`, `POST /staff-users/{id}/activate`, `/deactivate` (revokes tokens and trusted devices; browser sessions end on their next request; not yourself, not the last active administrator), `/password-reset-link`, `/two-factor/reset` (`revoke_api_tokens`: also revoke the user's tokens; not yourself). Demoting the last active administrator is `422` |
 | Portal logins | `GET/POST /clients/{id}/users`, `GET/PATCH /users/{id}`, `POST /users/{id}/password` (set), `/password-reset-link` (email), `/activate`, `/deactivate` (also revokes its API tokens), `/impersonate` |
-| Services | `GET/POST /services` (`create_invoice: false` creates the service alone, with `amount`, `next_due_date`, `activate`), `GET/PATCH /services/{id}`, `GET /services/{id}/logs`, `POST /services/{id}/activate\|suspend\|unsuspend\|terminate\|cancel\|reveal`, `POST /services/{id}/actions/{action}` |
+| Services | `GET/POST /services` (`create_invoice: false` creates the service alone, with `amount`, `next_due_date`, `activate`), `GET/PATCH /services/{id}`, `GET /services/{id}/logs`, `POST /services/{id}/activate\|suspend\|unsuspend\|terminate\|cancel\|reveal`, `POST /services/{id}/actions/{action}`; trials and plan changes: see [Trials and plan changes](#trials-and-plan-changes) |
 | Catalogue | `/products` and `/product-groups` (CRUD, `POST .../reorder` with `{"ids": [...]}`), `GET /modules` (modules of enabled plugins with their product/server field definitions) |
 | Servers | `/servers` CRUD, `POST /servers/{id}/test` |
 | Invoices | `/invoices` CRUD (drafts only for edit/delete), `GET /invoices/summary`, `GET /invoices/{id}/pdf`, `POST /invoices/{id}/issue\|resend\|void\|uncollectible`, `POST /invoices/{id}/payments` (manual payment). `pay_url` is the public link |

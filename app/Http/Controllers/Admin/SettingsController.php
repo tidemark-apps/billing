@@ -192,6 +192,11 @@ class SettingsController extends Controller
                     $f('billing.suspend_after_days', 'Suspend services this many days overdue', ['type' => 'number', 'default' => 5, 'help' => '0 turns automatic suspension off.']),
                     $f('billing.terminate_after_days', 'Terminate suspended services this many days overdue', ['type' => 'number', 'default' => 30, 'help' => '0 turns automatic termination off.']),
                 ]],
+                ['title' => 'Trials and plan changes', 'description' => 'Free trials end with a first invoice; customers can switch plans themselves.', 'fields' => [
+                    $f('billing.customer_plan_changes', 'Let customers change plan themselves', ['type' => 'checkbox', 'default' => true, 'help' => 'Also needs "Customers can change plan" turned on for the product. Staff can always change plans.']),
+                    $f('billing.trial_reminder_days', 'Remind customers this many days before a trial ends', ['type' => 'number', 'default' => 3, 'help' => '0 turns trial reminders off.']),
+                    $f('billing.trial_invoice_days_before', 'Create the first invoice this many days before a trial ends', ['type' => 'number', 'default' => 0, 'help' => '0 invoices when the trial ends.']),
+                ]],
                 ['title' => 'Automatic payments', 'description' => 'Charging customers\' saved payment methods. Runs hourly from the cron job.', 'fields' => [
                     $f('autopay.enabled', 'Charge saved payment methods automatically', ['type' => 'checkbox', 'default' => true, 'help' => 'Only for customers who turned automatic payment on for a saved method.']),
                     $f('autopay.days_before_due', 'Charge this many days before the due date', ['type' => 'number', 'default' => 0, 'help' => '0 charges on the due date.']),

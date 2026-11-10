@@ -15,7 +15,7 @@
     @foreach ($services as $s)
         <tr><td data-label="Service"><a href="{{ route('admin.services.show', $s) }}"><b>{{ $s->title() }}</b></a>@if ($s->provision_error)<div class="small" style="color:var(--destructive)">Provisioning error</div>@endif</td>
         <td data-label="Client"><a href="{{ route('admin.clients.show', $s->client_id) }}">{{ $s->client->displayName() }}</a></td>
-        <td data-label="Status"><x-status :status="$s->status" /></td><td data-label="Cycle">{{ $s->billing_cycle->label() }}</td>
+        <td data-label="Status"><x-status :status="$s->status" />@if ($s->onTrial()) <span class="pill">Trial</span>@endif</td><td data-label="Cycle">{{ $s->billing_cycle->label() }}</td>
         <td class="right" data-label="Price">{{ money($s->amount, $s->currency) }}</td><td data-label="Next due">{{ $s->next_due_date?->format('j M Y') ?? '—' }}</td></tr>
     @endforeach</tbody></table>
     {{ $services->links() }}@endif

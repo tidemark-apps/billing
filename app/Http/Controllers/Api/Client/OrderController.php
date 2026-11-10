@@ -25,12 +25,12 @@ class OrderController extends ApiController
 
         $order = $orders->place($this->client($request), $product, BillingCycle::from($data['billing_cycle']), ['label' => $data['label'] ?? null]);
         $order['service']->load('product');
-        $order['invoice']->load('items');
+        $order['invoice']?->load('items');
 
         return response()->json(['data' => [
             'service' => (new ServiceResource($order['service']))->resolve($request),
-            'invoice' => (new InvoiceResource($order['invoice']))->resolve($request),
-            'pay_url' => route('invoice.public', $order['invoice']->uuid),
+            'invoice' => $order['invoice'] ? (new InvoiceResource($order['invoice']))->resolve($request) : null,
+            'pay_url' => $order['invoice'] ? route('invoice.public', $order['invoice']->uuid) : null,
         ]], 201);
     }
 }

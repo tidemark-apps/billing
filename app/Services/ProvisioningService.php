@@ -127,7 +127,7 @@ class ProvisioningService
     /** Cancel now (terminating the remote account) or flag it to end at the next renewal date. */
     public function cancel(Service $service, bool $immediately = false, ?string $reason = null): Service
     {
-        if ($immediately || $service->status === ServiceStatus::Pending || ! $service->next_due_date) {
+        if ($immediately || $service->status === ServiceStatus::Pending || ! $service->next_due_date || $service->onTrial()) {
             $service = $this->terminate($service);
             if ($service->status === ServiceStatus::Terminated) {
                 $service->update(['status' => ServiceStatus::Cancelled, 'cancelled_at' => now(), 'cancel_reason' => $reason]);

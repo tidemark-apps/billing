@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
+use App\Events\TrialConverted;
+use App\Events\TrialEnding;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
@@ -27,6 +29,8 @@ class BillingRunner
     {
         return [
             'usage_pulled' => $this->usage->pullAll(),
+            'plan_changes' => app(PlanChangeService::class)->applyDue(),
+            'trial_reminders' => $this->sendTrialReminders(),
             'invoices' => $this->generateRenewalInvoices(),
             'reminders' => $this->sendReminders(),
             'suspended' => $this->suspendOverdue(),
@@ -46,15 +50,17 @@ class BillingRunner
     {
         $horizon = now()->addDays((int) Settings::get('billing.invoice_days_before', 14))->toDateString();
         $usageHorizon = now()->addDays(max(0, (int) Settings::get('billing.usage_invoice_days_before', 0)))->toDateString();
+        $trialHorizon = now()->addDays(max(0, (int) Settings::get('billing.trial_invoice_days_before', 0)))->toDateString();
         $due = Service::with(['client', 'product.meters'])
             ->where('status', ServiceStatus::Active->value)
             ->where('cancel_at_period_end', false)
             ->where('billing_cycle', '!=', 'one_time')
             ->whereNotNull('next_due_date')
-            ->whereDate('next_due_date', '<=', max($horizon, $usageHorizon))
+            ->whereDate('next_due_date', '<=', max($horizon, $usageHorizon, $trialHorizon))
             ->get()
-            ->filter(fn (Service $s) => $s->next_due_date->toDateString() <= ($this->isMetered($s) ? $usageHorizon : $horizon))
-            ->filter(fn (Service $s) => ! $this->alreadyInvoiced($s));
+            ->filter(fn (Service $s) => $s->next_due_date->toDateString() <= $this->invoiceHorizon($s, $horizon, $usageHorizon, $trialHorizon))
+            ->filter(fn (Service $s) => ! $this->alreadyInvoiced($s))
+            ->filter(fn (Service $s) => ! $this->awaitingPlanChange($s));
 
         $count = 0;
         foreach ($due->groupBy(fn (Service $s) => $s->client_id.'|'.$s->currency.'|'.$s->next_due_date->toDateString()) as $services) {
@@ -65,6 +71,7 @@ class BillingRunner
                 foreach ($services as $s) {
                     $start = $s->next_due_date->copy();
                     $end = $s->billing_cycle->advance($start)->subDay();
+                    $trial = $s->trial_ends_at !== null && $s->trial_converted_at === null;
                     $items[] = [
                         'kind' => 'renewal',
                         'description' => $s->title().' — '.$start->format('j M Y').' to '.$end->format('j M Y'),
@@ -75,6 +82,9 @@ class BillingRunner
                         'period_start' => $start->toDateString(),
                         'period_end' => $end->toDateString(),
                     ];
+                    if ($trial && ($setup = $s->product?->priceFor($s->billing_cycle, $s->currency)?->setup_fee) > 0) {
+                        $items[] = ['kind' => 'setup', 'description' => ($s->product?->name ?? $s->title()).' — setup fee', 'unit_price' => $setup, 'taxable' => ! ($s->product?->tax_exempt ?? false), 'service_id' => $s->id, 'product_id' => $s->product_id];
+                    }
                     if ($this->isMetered($s)) {
                         // The closing period is [due - cycle, due). Anything recorded after the cut-off waits for the next invoice.
                         [$usageStart] = $this->usage->period($s);
@@ -86,11 +96,63 @@ class BillingRunner
                 }
                 $invoice = $this->invoices->create($first->client, $items, ['currency' => $first->currency, 'issue' => true, 'due_date' => $first->next_due_date->toDateString()]);
                 $this->settleUsage($invoice, $settle);
+                foreach ($services as $s) {
+                    if ($s->trial_ends_at !== null && $s->trial_converted_at === null) {
+                        $s->update(['trial_converted_at' => now()]);
+                        event(new TrialConverted($s, ['invoice_id' => $invoice->id]));
+                    }
+                }
             });
             $count++;
         }
 
         return $count;
+    }
+
+    /** Trials are invoiced when they end (billing.trial_invoice_days_before earlier, default 0), not 14 days ahead like renewals. */
+    private function invoiceHorizon(Service $s, string $horizon, string $usageHorizon, string $trialHorizon): string
+    {
+        if ($s->trial_ends_at !== null && $s->trial_converted_at === null) {
+            return $trialHorizon;
+        }
+
+        return $this->isMetered($s) ? $usageHorizon : $horizon;
+    }
+
+    /** A downgrade scheduled for the renewal date is applied that day, so the renewal invoice waits for it. */
+    private function awaitingPlanChange(Service $s): bool
+    {
+        return $s->planChanges()->where('status', 'scheduled')->whereDate('effective_date', '>', now()->toDateString())->exists();
+    }
+
+    /** One "trial ending" email and event per trial, billing.trial_reminder_days (default 3) before it ends. */
+    public function sendTrialReminders(): int
+    {
+        $days = (int) Settings::get('billing.trial_reminder_days', 3);
+        if ($days < 0) {
+            return 0;
+        }
+        $count = 0;
+        Service::with('client', 'product')->where('status', ServiceStatus::Active->value)->whereNotNull('trial_ends_at')
+            ->whereNull('trial_converted_at')->whereNull('trial_reminded_at')->where('cancel_at_period_end', false)
+            ->whereDate('trial_ends_at', '<=', now()->addDays($days)->toDateString())->each(function (Service $s) use (&$count) {
+                $s->update(['trial_reminded_at' => now()]);
+                $this->notifier->trialEnding($s);
+                event(new TrialEnding($s));
+                $count++;
+            });
+
+        return $count;
+    }
+
+    /** Raise the first invoice for a trial right now (admin "end trial now"). */
+    public function convertTrialNow(Service $service): void
+    {
+        if ($service->trial_ends_at === null || $service->trial_converted_at !== null) {
+            return;
+        }
+        $service->update(['trial_ends_at' => now()->startOfDay(), 'next_due_date' => now()->startOfDay()]);
+        $this->generateRenewalInvoices();
     }
 
     private function isMetered(Service $service): bool

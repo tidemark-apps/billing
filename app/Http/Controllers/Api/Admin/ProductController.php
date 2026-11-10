@@ -111,6 +111,9 @@ class ProductController extends ApiController
             'is_visible' => ['nullable', 'boolean'],
             'tax_exempt' => ['nullable', 'boolean'],
             'sort' => ['nullable', 'integer', 'min:0'],
+            'trial_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            'trial_requires_payment_method' => ['sometimes', 'boolean'],
+            'allow_plan_changes' => ['sometimes', 'boolean'],
             'prices' => ['nullable', 'array'],
             'prices.*.cycle' => ['required', Rule::enum(BillingCycle::class)],
             'prices.*.currency' => ['required', 'string', 'size:3', fn ($a, $v, $fail) => isset(Money::currencies()[strtoupper((string) $v)]) || $fail('The selected currency is invalid.')],
@@ -128,7 +131,7 @@ class ProductController extends ApiController
      */
     private function attributes(array $data, ?Product $existing = null): array
     {
-        $out = collect($data)->only(['name', 'description', 'product_group_id', 'label_prompt', 'is_active', 'is_visible', 'tax_exempt', 'sort'])->all();
+        $out = collect($data)->only(['name', 'description', 'product_group_id', 'label_prompt', 'is_active', 'is_visible', 'tax_exempt', 'sort', 'trial_days', 'trial_requires_payment_method', 'allow_plan_changes'])->all();
 
         $moduleKey = array_key_exists('module', $data) ? $data['module'] : $existing?->module;
         $module = $this->modules->get($moduleKey);

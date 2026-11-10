@@ -36,8 +36,12 @@ Route::middleware(['auth.api:customer', 'throttle:api'])->group(function () {
         Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
         Route::get('/services/{service}', [ServiceController::class, 'show'])->name('services.show');
     });
+    Route::get('/services/{service}/plan-options', [ServiceController::class, 'planOptions'])->middleware('ability:services.read')->name('services.plan-options');
+    Route::post('/services/{service}/plan-change/preview', [ServiceController::class, 'planPreview'])->middleware('ability:services.read')->name('services.plan-change.preview');
     Route::get('/services/{service}/usage', [UsageController::class, 'show'])->middleware('ability:usage.read')->name('services.usage');
     Route::middleware('ability:services.write')->group(function () {
+        Route::post('/services/{service}/plan-change', [ServiceController::class, 'planChange'])->name('services.plan-change');
+        Route::delete('/services/{service}/plan-change', [ServiceController::class, 'cancelPlanChange'])->name('services.plan-change.cancel');
         Route::post('/services/{service}/cancel', [ServiceController::class, 'cancel'])->name('services.cancel');
         Route::post('/services/{service}/actions/{action}', [ServiceController::class, 'action'])->name('services.action');
     });

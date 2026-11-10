@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Http\Controllers\Api\Support\PlanChangeEndpoints;
 use App\Http\Resources\ServiceResource;
 use App\Http\Resources\UsageSummaryResource;
 use App\Models\Service;
@@ -12,9 +13,11 @@ use Illuminate\Http\Request;
 
 class ServiceController extends ApiController
 {
+    use PlanChangeEndpoints;
+
     public function index(Request $request)
     {
-        $query = $this->client($request)->services()->with('product')->latest('id');
+        $query = $this->client($request)->services()->with('product', 'planChanges.toProduct')->latest('id');
         if ($request->filled('status')) {
             $query->where('status', $request->query('status'));
         }
@@ -48,6 +51,26 @@ class ServiceController extends ApiController
         }
 
         return response()->json(['data' => ['success' => true, 'message' => $result->message, 'redirect' => $result->redirect]]);
+    }
+
+    public function planOptions(Request $request, string $service)
+    {
+        return $this->planOptionsResponse($this->find($request, $service), false);
+    }
+
+    public function planPreview(Request $request, string $service)
+    {
+        return $this->planPreviewResponse($request, $this->find($request, $service), false);
+    }
+
+    public function planChange(Request $request, string $service)
+    {
+        return $this->planChangeResponse($request, $this->find($request, $service), false);
+    }
+
+    public function cancelPlanChange(Request $request, string $service)
+    {
+        return $this->planCancelResponse($this->find($request, $service), false);
     }
 
     private function find(Request $request, string $uuid): Service

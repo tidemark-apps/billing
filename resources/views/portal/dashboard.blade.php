@@ -31,7 +31,7 @@
     @else
     <table class="t"><thead><tr><th>Service</th><th>Status</th><th>Next due</th><th class="right">Price</th></tr></thead><tbody>
     @foreach ($services as $s)
-        <tr><td><a href="{{ route('portal.services.show', $s) }}"><b>{{ $s->title() }}</b></a></td><td><x-status :status="$s->status" /></td><td>{{ $s->next_due_date?->format('j M Y') ?? '—' }}</td><td class="right">{{ money($s->amount, $s->currency) }} <span class="muted small">{{ $s->billing_cycle->suffix() }}</span></td></tr>
+        <tr><td><a href="{{ route('portal.services.show', $s) }}"><b>{{ $s->title() }}</b></a></td><td><x-status :status="$s->status" />@if ($s->onTrial()) <span class="pill">Trial</span>@endif</td><td>{{ $s->next_due_date?->format('j M Y') ?? '—' }}</td><td class="right">{{ money($s->amount, $s->currency) }} <span class="muted small">{{ $s->billing_cycle->suffix() }}</span></td></tr>
     @endforeach</tbody></table>
     @endif
 </x-card>

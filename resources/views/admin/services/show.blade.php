@@ -19,9 +19,10 @@
     @if ($st === \App\Enums\ServiceStatus::Pending)<form class="alert-action" method="POST" action="{{ route('admin.services.activate', $service) }}">@csrf<button class="btn sm" type="submit">Retry</button></form>@endif</div>
 @endif
 @if ($service->cancel_at_period_end)<div class="notice warn"><x-icon name="info" :size="16" /><div>Set to cancel on {{ $service->next_due_date?->format('j M Y') }}.</div></div>@endif
+@if ($service->onTrial())@include('admin.services._trial')@endif
 <div class="grid2">
     <x-card title="Summary"><dl class="kv wide">
-        <dt>Status</dt><dd><x-status :status="$st" /></dd>
+        <dt>Status</dt><dd><x-status :status="$st" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif</dd>
         <dt>Client</dt><dd><a href="{{ route('admin.clients.show', $service->client_id) }}" style="text-decoration:underline">{{ $service->client->displayName() }}</a></dd>
         <dt>Product</dt><dd>{{ $service->product?->name ?? '—' }}</dd>
         <dt>Module</dt><dd>{{ $module?->label() ?? 'None' }}</dd>
@@ -42,10 +43,11 @@
         @endif
     </x-card>
 </div>
+@include('admin.services._plan-change')
 @include('admin.usage.panel', ['service' => $service])
 {!! extensions('admin.service', ['service' => $service]) !!}
 <form method="POST" action="{{ route('admin.services.update', $service) }}" class="card setting">@csrf @method('PUT')
-    <div class="setting-h"><h2>Edit service</h2><p>Price changes apply from the next renewal invoice.</p></div>
+    <div class="setting-h"><h2>Edit service</h2><p>Price changes apply from the next renewal invoice. This overrides the price and cycle directly; use Change plan above for a prorated move to another plan.</p></div>
     <div class="setting-b"><div class="grid3">
         <x-field name="label" label="Label" :value="$service->label" />
         <x-field name="amount" label="Recurring price ({{ $service->currency }})" type="number" step="0.01" min="0" :value="\App\Support\Money::toDecimal($service->amount, $service->currency)" required />

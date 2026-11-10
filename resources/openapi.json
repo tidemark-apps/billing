@@ -365,6 +365,25 @@
                     "is_visible": {
                         "type": "boolean"
                     },
+                    "trial_days": {
+                        "type": "integer",
+                        "description": "Length of the free trial in days; 0 = no trial"
+                    },
+                    "trial_requires_payment_method": {
+                        "type": "boolean",
+                        "description": "Staff tokens only: a saved payment method is needed to start a trial"
+                    },
+                    "allow_plan_changes": {
+                        "type": "boolean",
+                        "description": "Staff tokens only: customers may switch from this plan themselves"
+                    },
+                    "trial_available": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ],
+                        "description": "Customer/public requests: whether the authenticated client can still start a trial (null without a customer token). Trials are once per client per product"
+                    },
                     "module": {
                         "type": [
                             "string",
@@ -444,6 +463,39 @@
                     },
                     "cancel_at_period_end": {
                         "type": "boolean"
+                    },
+                    "on_trial": {
+                        "type": "boolean",
+                        "description": "True from the start of a trial until its first invoice is raised"
+                    },
+                    "trial_ends_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "trial_converted_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "scheduled_change": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ScheduledPlanChange"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "A plan change waiting for the next renewal"
+                    },
+                    "can_change_plan": {
+                        "type": "boolean",
+                        "description": "Customer tokens only: whether the customer may change plan themselves"
                     },
                     "activated_at": {
                         "type": [
@@ -1315,6 +1367,17 @@
                     },
                     "sort": {
                         "type": "integer"
+                    },
+                    "trial_days": {
+                        "type": "integer",
+                        "description": "0-365; 0 turns the trial off"
+                    },
+                    "trial_requires_payment_method": {
+                        "type": "boolean"
+                    },
+                    "allow_plan_changes": {
+                        "type": "boolean",
+                        "description": "Let customers switch from this plan themselves (default true)"
                     },
                     "prices": {
                         "type": "array",
@@ -2544,6 +2607,10 @@
                         "type": "boolean",
                         "description": "Default true: place an order (pending service + invoice). false: create only the service, like \"New service\" in the admin UI"
                     },
+                    "trial": {
+                        "type": "boolean",
+                        "description": "create_invoice=true only: false bills now even when the product offers a trial"
+                    },
                     "amount": {
                         "type": "integer",
                         "description": "create_invoice=false only: price in minor units (default: the product price)"
@@ -2579,9 +2646,278 @@
                                 "type": "null"
                             }
                         ],
-                        "description": "null when create_invoice=false"
+                        "description": "null when create_invoice=false, or when a free trial started instead of an invoice"
                     }
                 }
+            },
+            "ScheduledPlanChange": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "to_product": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "id, name"
+                    },
+                    "to_cycle": {
+                        "type": "string"
+                    },
+                    "to_amount": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "effective_date": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            },
+            "PlanOption": {
+                "type": "object",
+                "properties": {
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "product_name": {
+                        "type": "string"
+                    },
+                    "billing_cycle": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "$ref": "#/components/schemas/Money"
+                    }
+                }
+            },
+            "PlanOptions": {
+                "type": "object",
+                "properties": {
+                    "can_change_plan": {
+                        "type": "boolean",
+                        "description": "False when the service cannot change plan (or, for customers, may not); options is then empty"
+                    },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanOption"
+                        }
+                    }
+                }
+            },
+            "PlanChangeInput": {
+                "type": "object",
+                "properties": {
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "billing_cycle": {
+                        "type": "string",
+                        "enum": [
+                            "one_time",
+                            "monthly",
+                            "quarterly",
+                            "semi_annually",
+                            "annually",
+                            "biennially",
+                            "triennially"
+                        ]
+                    },
+                    "timing": {
+                        "type": "string",
+                        "enum": [
+                            "immediate",
+                            "renewal"
+                        ],
+                        "description": "Default: upgrades now, downgrades at renewal. Staff only: customers cannot make a downgrade immediate"
+                    }
+                },
+                "required": [
+                    "product_id",
+                    "billing_cycle"
+                ]
+            },
+            "PlanChangePreview": {
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "enum": [
+                            "upgrade",
+                            "downgrade",
+                            "change"
+                        ]
+                    },
+                    "timing": {
+                        "type": "string",
+                        "enum": [
+                            "immediate",
+                            "renewal"
+                        ]
+                    },
+                    "trial": {
+                        "type": "boolean",
+                        "description": "On a trial nothing is prorated"
+                    },
+                    "from_product": {
+                        "type": "object"
+                    },
+                    "to_product": {
+                        "type": "object"
+                    },
+                    "from_cycle": {
+                        "type": "string"
+                    },
+                    "to_cycle": {
+                        "type": "string"
+                    },
+                    "from_amount": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "to_amount": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "credit": {
+                        "$ref": "#/components/schemas/Money",
+                        "description": "Unused part of the current period"
+                    },
+                    "charge": {
+                        "$ref": "#/components/schemas/Money",
+                        "description": "Rest of the period (or one full period when the cycle changes) at the new price"
+                    },
+                    "amount_due": {
+                        "$ref": "#/components/schemas/Money",
+                        "description": "charge minus credit, never below 0: the invoice total before tax"
+                    },
+                    "forfeited": {
+                        "$ref": "#/components/schemas/Money",
+                        "description": "Credit larger than the charge; it is not refunded or carried forward"
+                    },
+                    "effective_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "next_due_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "period_start": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "period_end": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            },
+            "PlanChange": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "service_id": {
+                        "type": "integer"
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": [
+                            "upgrade",
+                            "downgrade",
+                            "change"
+                        ]
+                    },
+                    "timing": {
+                        "type": "string",
+                        "enum": [
+                            "immediate",
+                            "renewal"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "scheduled",
+                            "applied",
+                            "cancelled"
+                        ]
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "customer",
+                            "api"
+                        ]
+                    },
+                    "from_product": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "to_product": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "from_cycle": {
+                        "type": "string"
+                    },
+                    "to_cycle": {
+                        "type": "string"
+                    },
+                    "from_amount": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "to_amount": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "credit": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "charge": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "effective_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "applied_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "invoice": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "Summary (id, uuid, number, status, total, balance, due_date, pay_url) of the proration invoice; null when nothing is due or the change is scheduled"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "TrialExtendInput": {
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "integer",
+                        "description": "1-365"
+                    }
+                },
+                "required": [
+                    "days"
+                ]
             },
             "ServiceUpdateInput": {
                 "type": "object",
@@ -3852,7 +4188,7 @@
                 "tags": [
                     "Orders"
                 ],
-                "summary": "Order a product: creates a pending service and an invoice",
+                "summary": "Order a product: creates a pending service and an invoice. When the product offers a free trial the client has not used, a trial starts instead: the service is provisioned, invoice and pay_url are null and the first invoice follows when the trial ends. 422 when the trial needs a saved payment method",
                 "operationId": "clientOrdersStore",
                 "description": "Required ability: `orders.write` (tokens without an ability list may do everything their owner can).",
                 "security": [
@@ -3909,10 +4245,22 @@
                                                     "$ref": "#/components/schemas/Service"
                                                 },
                                                 "invoice": {
-                                                    "$ref": "#/components/schemas/Invoice"
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/Invoice"
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ],
+                                                    "description": "null when a trial started"
                                                 },
                                                 "pay_url": {
-                                                    "type": "string"
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "null when a trial started"
                                                 }
                                             }
                                         }
@@ -4163,6 +4511,192 @@
                 }
             }
         },
+        "/services/{service}/plan-options": {
+            "get": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "Plans this service can switch to (same group, visible, priced in the service currency). can_change_plan is false, and options empty, when plan changes are off for the service",
+                "operationId": "clientServicesPlanOptions",
+                "description": "Required ability: `services.read` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlanOptions"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/services/{service}/plan-change/preview": {
+            "post": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "Preview a plan change without making it: proration credit, charge and amount due. 422 when the plan is not offered",
+                "operationId": "clientServicesPlanChangePreview",
+                "description": "Required ability: `services.read` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlanChangeInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlanChangePreview"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/services/{service}/usage": {
             "get": {
                 "tags": [
@@ -4225,6 +4759,188 @@
                     },
                     "404": {
                         "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/services/{service}/plan-change": {
+            "post": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "Change plan: upgrades are prorated and invoiced now, downgrades take effect at the next renewal (a scheduled change replaces an earlier one). Returns the recorded change with its invoice, if any",
+                "operationId": "clientServicesPlanChange",
+                "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlanChangeInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlanChange"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "Cancel the plan change waiting for the next renewal (422 when there is none)",
+                "operationId": "clientServicesPlanChangeCancel",
+                "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -10989,7 +11705,7 @@
                 "tags": [
                     "Admin: Services"
                 ],
-                "summary": "Update label, notes, price, billing cycle, due date or server",
+                "summary": "Update label, notes, price, billing cycle, due date or server. This is the override path: it writes the values as sent, with no proration and no invoice (changing price or cycle re-runs the module's package change). Use POST .../plan-change for a prorated upgrade or downgrade",
                 "operationId": "adminServicesUpdate",
                 "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
                 "security": [
@@ -11146,6 +11862,302 @@
                                                     "type": "array",
                                                     "items": {
                                                         "$ref": "#/components/schemas/ServiceLog"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/services/{service}/plan-options": {
+            "get": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "All plans the service can switch to (any active product with a recurring price in the service currency). Empty, with can_change_plan false, for services that cannot change plan",
+                "operationId": "adminServicesPlanOptions",
+                "description": "Required ability: `services.read` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlanOptions"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/services/{service}/plan-change/preview": {
+            "post": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "Preview a plan change without making it. timing may force immediate or renewal",
+                "operationId": "adminServicesPlanChangePreview",
+                "description": "Required ability: `services.read` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlanChangeInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlanChangePreview"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/services/{service}/plan-changes": {
+            "get": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "Plan change history of a service, newest first",
+                "operationId": "adminServicesPlanChanges",
+                "description": "Required ability: `services.read` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 25
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Pagination"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/PlanChange"
                                                     }
                                                 }
                                             }
@@ -11637,6 +12649,380 @@
                                 }
                             }
                         }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/services/{service}/trial/extend": {
+            "post": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "Extend a running trial by N days: moves trial_ends_at and next_due_date (422 when the service is not on a trial). Resets the ending reminder",
+                "operationId": "adminServicesTrialExtend",
+                "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TrialExtendInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Service"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/services/{service}/trial/end": {
+            "post": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "End a running trial now: raises the first invoice immediately (422 when the service is not on a trial)",
+                "operationId": "adminServicesTrialEnd",
+                "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Service"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/services/{service}/plan-change": {
+            "post": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "Make a prorated plan change (source \"api\"), or schedule it for the renewal. Unlike PATCH /services/{id}, which overwrites price and cycle with no proration or invoice, this credits the unused period and invoices the difference. Fires service.plan_changed / service.plan_change_scheduled",
+                "operationId": "adminServicesPlanChange",
+                "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlanChangeInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlanChange"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: wrong kind of token, missing ability, or administrators only",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Admin: Services"
+                ],
+                "summary": "Cancel the plan change waiting for the renewal (422 when there is none)",
+                "operationId": "adminServicesPlanChangeCancel",
+                "description": "Required ability: `services.write` (tokens without an ability list may do everything their owner can).",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "service",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
                     },
                     "401": {
                         "description": "Missing or invalid token",

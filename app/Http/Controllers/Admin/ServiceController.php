@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Events\ServiceCreated;
+use App\Events\TrialStarted;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
+use App\Services\BillingRunner;
+use App\Services\Notifier;
+use App\Services\PlanChangeService;
 use App\Services\ProvisioningService;
 use App\Support\Activity;
 use App\Support\Money;
@@ -19,7 +23,7 @@ use Illuminate\Validation\Rule;
 
 class ServiceController extends Controller
 {
-    public function __construct(private readonly ProvisioningService $provisioning) {}
+    public function __construct(private readonly ProvisioningService $provisioning, private readonly PlanChangeService $planChanges) {}
 
     public function index(Request $request)
     {
@@ -45,6 +49,7 @@ class ServiceController extends Controller
         return view('admin.services.create', [
             'clients' => Client::orderBy('name')->get()->mapWithKeys(fn ($c) => [$c->id => $c->displayName().' ('.$c->email.')'])->all(),
             'products' => Product::where('is_active', true)->orderBy('name')->pluck('name', 'id')->all(),
+            'trialProducts' => Product::where('is_active', true)->where('trial_days', '>', 0)->pluck('trial_days', 'id')->all(),
             'cycles' => BillingCycle::options(),
             'selectedClient' => $request->integer('client') ?: null,
         ]);
@@ -60,6 +65,7 @@ class ServiceController extends Controller
             'label' => ['nullable', 'string', 'max:255'],
             'next_due_date' => ['nullable', 'date'],
             'activate' => ['nullable', 'boolean'],
+            'skip_trial' => ['nullable', 'boolean'],
         ]);
         $client = Client::findOrFail($data['client_id']);
         $product = Product::with('prices')->findOrFail($data['product_id']);
@@ -72,6 +78,10 @@ class ServiceController extends Controller
         $currency = $price?->currency ?? $client->currency;
         $amount = ($data['amount'] ?? '') !== '' ? Money::toMinor($data['amount'], $currency) : $price->amount;
 
+        // A product with a trial starts as one (a trial is live from the start, so it is activated), unless staff skip it.
+        $trial = $cycle->isRecurring() && ! $request->boolean('skip_trial') && $product->trialAvailableTo($client);
+        $trialEnds = $trial ? now()->addDays($product->trial_days)->startOfDay() : null;
+
         $service = Service::create([
             'client_id' => $client->id,
             'product_id' => $product->id,
@@ -80,22 +90,33 @@ class ServiceController extends Controller
             'billing_cycle' => $cycle,
             'currency' => $currency,
             'amount' => $amount,
-            'next_due_date' => $data['next_due_date'] ?? null,
+            'next_due_date' => $trialEnds ?? ($data['next_due_date'] ?? null),
+            'trial_ends_at' => $trialEnds,
         ]);
         event(new ServiceCreated($service));
-        Activity::log('service.created', $service, 'Created service manually');
+        Activity::log('service.created', $service, $trial ? 'Created service manually with a '.$product->trial_days.'-day trial' : 'Created service manually');
+        if ($trial) {
+            event(new TrialStarted($service, ['days' => $product->trial_days]));
+            app(Notifier::class)->trialStarted($service);
+        }
 
-        if ($request->boolean('activate')) {
+        if ($trial || $request->boolean('activate')) {
             $service = $this->provisioning->activate($service);
             if ($service->status !== ServiceStatus::Active) {
                 return redirect()->route('admin.services.show', $service)->with('error', 'Service created but provisioning failed: '.$service->provision_error);
             }
         }
 
-        return redirect()->route('admin.services.show', $service)->with('status', 'Service created.');
+        return redirect()->route('admin.services.show', $service)->with('status', $trial ? 'Service created. Its '.$product->trial_days.'-day trial has started.' : 'Service created.');
     }
 
-    public function show(Service $service, bool $reveal = false)
+    public function show(Service $service)
+    {
+        return $this->render($service);
+    }
+
+    /** @param  array<string, mixed>|null  $preview */
+    private function render(Service $service, bool $reveal = false, ?array $preview = null, array $selected = [])
     {
         $service->load(['client', 'product', 'server', 'logs' => fn ($q) => $q->with('user')->limit(50)]);
         $module = $this->provisioning->moduleFor($service);
@@ -106,6 +127,12 @@ class ServiceController extends Controller
             'servers' => $module?->usesServers() ? Server::where('module', $module->key())->orderBy('name')->pluck('name', 'id')->all() : [],
             'cycles' => BillingCycle::options(),
             'reveal' => $reveal,
+            'planOptions' => $this->planChanges->changeable($service) ? $this->planChanges->options($service, true) : collect(),
+            'canChangePlan' => $this->planChanges->changeable($service),
+            'scheduledChange' => $service->scheduledChange()?->load(['toProduct']),
+            'history' => $service->planChanges()->with(['fromProduct', 'toProduct', 'invoice'])->get(),
+            'preview' => $preview,
+            'selected' => $selected,
         ]);
     }
 
@@ -114,7 +141,7 @@ class ServiceController extends Controller
     {
         Activity::log('service.secrets_revealed', $service, 'Revealed secrets for '.$service->title());
 
-        return $this->show($service, true);
+        return $this->render($service, true);
     }
 
     public function update(Request $request, Service $service): RedirectResponse
@@ -145,6 +172,73 @@ class ServiceController extends Controller
         }
 
         return back()->with('status', 'Service saved.');
+    }
+
+    public function extendTrial(Request $request, Service $service): RedirectResponse
+    {
+        $data = $request->validate(['days' => ['required', 'integer', 'min:1', 'max:365']]);
+        if (! $service->onTrial()) {
+            return back()->with('error', 'This service is not on a trial.');
+        }
+        $ends = $service->trial_ends_at->copy()->addDays((int) $data['days']);
+        $service->update(['trial_ends_at' => $ends, 'next_due_date' => $ends, 'trial_reminded_at' => null]);
+        Activity::log('service.trial_extended', $service, 'Trial extended by '.$data['days'].' days to '.$ends->toDateString());
+
+        return back()->with('status', 'Trial extended to '.$ends->format('j M Y').'.');
+    }
+
+    public function endTrial(Service $service, BillingRunner $runner): RedirectResponse
+    {
+        if (! $service->onTrial()) {
+            return back()->with('error', 'This service is not on a trial.');
+        }
+        $runner->convertTrialNow($service);
+        Activity::log('service.trial_ended', $service, 'Trial ended early and invoiced');
+
+        return back()->with('status', 'Trial ended. The first invoice has been created.');
+    }
+
+    public function previewPlanChange(Request $request, Service $service)
+    {
+        [$product, $cycle, $timing] = $this->planInput($request);
+        try {
+            $preview = $this->planChanges->preview($service, $product, $cycle, $timing, true);
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return $this->render($service, false, $preview, ['plan' => $product->id.':'.$cycle->value, 'timing' => $timing]);
+    }
+
+    public function changePlan(Request $request, Service $service): RedirectResponse
+    {
+        [$product, $cycle, $timing] = $this->planInput($request);
+        try {
+            $change = $this->planChanges->change($service, $product, $cycle, $timing, 'admin');
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.services.show', $service)->with('status', $change->status === 'scheduled' ? 'Plan change scheduled for '.$change->effective_date->format('j M Y').'.' : 'Plan changed.'.($change->invoice_id ? ' An invoice was created for the difference.' : ''));
+    }
+
+    public function cancelScheduledChange(Service $service): RedirectResponse
+    {
+        $cancelled = $this->planChanges->cancelScheduled($service);
+
+        return back()->with($cancelled ? 'status' : 'error', $cancelled ? 'Scheduled change cancelled.' : 'There is no scheduled change.');
+    }
+
+    /** @return array{0: Product, 1: BillingCycle, 2: ?string} */
+    private function planInput(Request $request): array
+    {
+        $data = $request->validate([
+            'plan' => ['required', 'regex:/^\d+:[a-z_]+$/'],
+            'timing' => ['nullable', Rule::in(['', 'immediate', 'renewal'])],
+        ]);
+        [$id, $cycle] = explode(':', $data['plan']);
+
+        return [Product::findOrFail((int) $id), BillingCycle::tryFrom($cycle) ?? abort(422), ($data['timing'] ?? '') ?: null];
     }
 
     public function activate(Service $service): RedirectResponse

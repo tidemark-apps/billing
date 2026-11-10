@@ -30,6 +30,9 @@ class Product extends Model
             'is_active' => 'boolean',
             'is_visible' => 'boolean',
             'tax_exempt' => 'boolean',
+            'trial_days' => 'integer',
+            'trial_requires_payment_method' => 'boolean',
+            'allow_plan_changes' => 'boolean',
         ];
     }
 
@@ -67,6 +70,18 @@ class Product extends Model
     public function pricesIn(string $currency)
     {
         return $this->prices->where('currency', $currency)->sortBy(fn (ProductPrice $p) => $p->cycle->months())->values();
+    }
+
+    public function offersTrial(): bool
+    {
+        return $this->trial_days > 0;
+    }
+
+    /** Trials are once per customer per product, however the earlier one ended. */
+    public function trialAvailableTo(Client $client): bool
+    {
+        return $this->offersTrial()
+            && ! Service::withTrashed()->where('client_id', $client->id)->where('product_id', $this->id)->whereNotNull('trial_ends_at')->exists();
     }
 
     public function moduleOption(string $key, mixed $default = null): mixed

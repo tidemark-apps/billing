@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Enums\BillingCycle;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Services\OrderService;
@@ -25,6 +26,7 @@ class OrderController extends PortalController
 
         return view('portal.order.create', [
             'product' => $product, 'cycle' => $cycle, 'price' => $price, 'rate' => $rate,
+            'trialAvailable' => $price->cycle->isRecurring() && $product->trialAvailableTo($client),
             'label' => $request->query('label'), 'tax' => $taxAmount, 'total' => $net + $taxAmount,
         ]);
     }
@@ -36,10 +38,19 @@ class OrderController extends PortalController
         if (! $price) {
             return redirect()->route('portal.store')->with('error', 'That product is not available for the selected billing cycle.');
         }
+        $client = $this->client();
         try {
-            $result = $orders->place($this->client(), $product, $cycle, ['label' => $data['label'] ?? null]);
+            $result = $orders->place($client, $product, $cycle, ['label' => $data['label'] ?? null]);
         } catch (\DomainException $e) {
+            if ($product->trial_requires_payment_method && $product->trialAvailableTo($client) && ! PaymentMethod::where('client_id', $client->id)->exists()) {
+                return redirect()->route('portal.order.create', ['product' => $product->slug, 'cycle' => $cycle->value, 'label' => $data['label'] ?? null])
+                    ->with('error', $e->getMessage())->with('needs_payment_method', true);
+            }
+
             return redirect()->route('portal.store')->with('error', $e->getMessage());
+        }
+        if ($result['invoice'] === null) {
+            return redirect()->route('portal.services.show', $result['service'])->with('status', 'Your trial has started.');
         }
 
         return redirect()->route('portal.invoices.show', $result['invoice'])->with('status', 'Order placed. Pay the invoice to activate your service.');

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\BillingMail;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PlanChange;
 use App\Models\Quote;
 use App\Models\Service;
 use App\Models\User;
@@ -90,6 +91,34 @@ class Notifier
             $service->title().' has been set up.',
             $service->label ? 'Reference: '.$service->label : null,
         ]), 'Manage service', $this->link('portal.services.show', $service));
+    }
+
+    public function trialStarted(Service $service): void
+    {
+        $service->loadMissing('client', 'product');
+        $this->send($service->client->email, 'Your trial of '.$service->title().' has started', 'Your free trial has started', array_filter([
+            'Your trial runs until '.$service->trial_ends_at->format('j F Y').'.',
+            $service->amount > 0 ? 'After that you will be invoiced '.Money::format($service->amount, $service->currency).' '.strtolower($service->billing_cycle->label()).'. Cancel any time before then and you will not be charged.' : null,
+        ]), 'Manage service', $this->link('portal.services.show', $service));
+    }
+
+    public function trialEnding(Service $service): void
+    {
+        $service->loadMissing('client', 'product');
+        $this->send($service->client->email, 'Your trial of '.$service->title().' ends soon', 'Your trial is ending', [
+            'Your free trial ends on '.$service->trial_ends_at->format('j F Y').'.',
+            'We will then invoice '.Money::format($service->amount, $service->currency).' for the first '.strtolower($service->billing_cycle->label()).' period. Cancel before then if you do not want to continue.',
+        ], 'Manage service', $this->link('portal.services.show', $service));
+    }
+
+    public function planChanged(Service $service, PlanChange $change): void
+    {
+        $service->loadMissing('client', 'product');
+        $when = $change->timing === 'renewal' ? 'on '.$change->effective_date->format('j F Y') : 'now';
+        $this->send($service->client->email, $service->title().': plan '.($change->timing === 'renewal' ? 'change scheduled' : 'changed'), 'Your plan '.($change->timing === 'renewal' ? 'will change' : 'has changed'), [
+            ($change->fromProduct?->name ?? 'Previous plan').' → '.($change->toProduct?->name ?? 'New plan').' ('.$change->to_cycle->label().') takes effect '.$when.'.',
+            'New price: '.Money::format($change->to_amount, $change->currency).' '.strtolower($change->to_cycle->label()).'.',
+        ], 'Manage service', $this->link('portal.services.show', $service));
     }
 
     public function provisioningFailed(Service $service, string $action, string $message): void

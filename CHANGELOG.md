@@ -4,6 +4,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
+### Added
+- Free trials, built in. Give a product a trial length and customers who order it get the service straight away with no invoice; the first invoice is raised when the trial ends, with a reminder email beforehand. One trial per customer per product, optionally requiring a saved payment method, free to cancel, and staff can extend or end a trial early. See `docs/trials-and-plan-changes.md`.
+- Upgrades, downgrades and billing-cycle changes, built in. Customers can switch plan from the portal and staff from the admin, with the unused time credited and the rest charged by the day on one invoice. Downgrades wait for the next renewal by default. The hosting package is changed on the server, every change is recorded on the service, and the REST API and webhooks cover all of it.
+
 ## [0.1.1] - 2026-11-09
 
 ### Fixed

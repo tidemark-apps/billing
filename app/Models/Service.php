@@ -25,6 +25,9 @@ class Service extends Model
             'billing_cycle' => BillingCycle::class,
             'amount' => 'integer',
             'next_due_date' => 'date',
+            'trial_ends_at' => 'date',
+            'trial_converted_at' => 'datetime',
+            'trial_reminded_at' => 'datetime',
             'activated_at' => 'datetime',
             'suspended_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -45,6 +48,23 @@ class Service extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class)->withTrashed();
+    }
+
+    public function planChanges(): HasMany
+    {
+        return $this->hasMany(PlanChange::class)->latest('id');
+    }
+
+    /** The change waiting for the next renewal, if any. */
+    public function scheduledChange(): ?PlanChange
+    {
+        return $this->planChanges()->where('status', 'scheduled')->first();
+    }
+
+    /** True from the moment a trial starts until its first invoice is raised (or it is cancelled). */
+    public function onTrial(): bool
+    {
+        return $this->trial_ends_at !== null && $this->trial_converted_at === null && $this->status->isLive();
     }
 
     public function server(): BelongsTo

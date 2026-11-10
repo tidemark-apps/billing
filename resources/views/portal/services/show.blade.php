@@ -1,8 +1,15 @@
 @extends('layouts.app', ['area' => 'portal'])
 @section('title', $service->title())
 @section('content')
-<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services"><x-status :status="$service->status" /></x-page-head>
+<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif</x-page-head>
 @if ($service->cancel_at_period_end)<div class="notice warn"><x-icon name="triangle-alert" :size="16" /><div>This service is set to cancel on {{ $service->next_due_date?->format('j M Y') }}.</div></div>@endif
+@if ($service->onTrial())
+<div class="notice"><x-icon name="info" :size="16" /><div><b>Free trial until {{ $service->trial_ends_at->format('j M Y') }}.</b> After that it is {{ money($service->amount, $service->currency) }} {{ $service->billing_cycle->suffix() }}. You can cancel any time before then and you will not be charged.</div></div>
+@endif
+@if ($scheduledChange)
+<div class="notice warn center"><x-icon name="info" :size="16" /><div>Your plan changes to <b>{{ $scheduledChange->toProduct?->name }}</b> ({{ $scheduledChange->to_cycle->label() }}, {{ money($scheduledChange->to_amount, $scheduledChange->currency) }} {{ $scheduledChange->to_cycle->suffix() }}) on {{ $scheduledChange->effective_date->format('j M Y') }}.</div>
+    <form class="alert-action" method="POST" action="{{ route('portal.services.plan-change.cancel', $service) }}">@csrf @method('DELETE')<button class="btn sm" type="submit">Cancel scheduled change</button></form></div>
+@endif
 @if (session('revealed'))
 <x-card title="Your credentials"><p class="muted small">Shown once. Store them somewhere safe.</p>
     @foreach (session('revealed') as $k => $v)<div class="stack sm" style="margin-top:8px"><span class="muted small">{{ ucfirst(str_replace('_', ' ', $k)) }}</span><div class="secret-box"><span class="grow">{{ is_scalar($v) ? $v : json_encode($v) }}</span><button class="btn sm" type="button" data-copy="{{ is_scalar($v) ? $v : json_encode($v) }}">Copy</button></div></div>@endforeach
@@ -25,6 +32,30 @@
         @foreach ($actions as $key => $label)<form method="POST" action="{{ route('portal.services.action', [$service, $key]) }}">@csrf<button class="btn" type="submit">{{ $label }}</button></form>@endforeach
         @if ($hasSecrets)<form method="POST" action="{{ route('portal.services.reveal', $service) }}">@csrf<button class="btn" type="submit"><x-icon name="eye" :size="15" /> Reveal credentials</button></form>@endif
     </div>
+</x-card>
+@endif
+@if ($canChangePlan && ($preview || $planOptions->isNotEmpty()))
+<x-card title="Change plan">
+    @if ($preview)
+        <p class="muted small" style="margin-bottom:12px">Here is what changes. Nothing happens until you confirm.</p>
+        @include('portal.services._plan-preview', ['preview' => $preview, 'staff' => false])
+        <form method="POST" action="{{ route('portal.services.plan-change.store', $service) }}" class="row" style="margin-top:16px">@csrf
+            <input type="hidden" name="plan" value="{{ $selected['plan'] }}">
+            <button class="btn primary" type="submit">Confirm change</button><a class="btn" href="{{ route('portal.services.show', $service) }}">Back</a>
+        </form>
+    @else
+        <form method="POST" action="{{ route('portal.services.plan-change.preview', $service) }}" class="stack">@csrf
+            <label><span>Switch to</span>
+                <select name="plan" required>
+                    @foreach ($planOptions->groupBy(fn ($o) => $o['product']->name) as $name => $opts)
+                        <optgroup label="{{ $name }}">@foreach ($opts as $o)<option value="{{ $o['product']->id }}:{{ $o['cycle']->value }}">{{ $o['cycle']->label() }} · {{ money($o['amount'], $service->currency) }} {{ $o['cycle']->suffix() }}</option>@endforeach</optgroup>
+                    @endforeach
+                </select>
+            </label>
+            <p class="help">Upgrades start today and you pay only the difference for the rest of the period. Downgrades apply at your next renewal.</p>
+            <div><button class="btn" type="submit">Preview change</button></div>
+        </form>
+    @endif
 </x-card>
 @endif
 @include('portal.usage.panel', ['service' => $service])

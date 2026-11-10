@@ -7,7 +7,7 @@
     <table class="t stack-sm"><thead><tr><th>Product</th><th>Group</th><th>Module</th><th>From</th><th class="right">Live</th><th>Status</th></tr></thead><tbody>
     @foreach ($products as $p)
         @php($cheapest = $p->prices->sortBy('amount')->first())
-        <tr><td data-label="Product"><a href="{{ route('admin.products.edit', $p) }}"><b>{{ $p->name }}</b></a></td><td data-label="Group">{{ $p->group?->name ?? '—' }}</td>
+        <tr><td data-label="Product"><a href="{{ route('admin.products.edit', $p) }}"><b>{{ $p->name }}</b></a>@if ($p->offersTrial()) <span class="pill">{{ $p->trial_days }}-day trial</span>@endif</td><td data-label="Group">{{ $p->group?->name ?? '—' }}</td>
         <td data-label="Module">{{ $p->module ? ($modules[$p->module] ?? $p->module) : '—' }}</td>
         <td data-label="From">{{ $cheapest ? money($cheapest->amount, $cheapest->currency).' '.$cheapest->cycle->suffix() : '—' }}</td>
         <td class="right" data-label="Live">{{ $p->live_count }}</td>

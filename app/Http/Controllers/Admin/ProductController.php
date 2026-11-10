@@ -35,7 +35,7 @@ class ProductController extends Controller
 
     public function create()
     {
-        return view('admin.products.form', $this->formData(new Product(['is_active' => true, 'is_visible' => true])));
+        return view('admin.products.form', $this->formData(new Product(['is_active' => true, 'is_visible' => true, 'allow_plan_changes' => true])));
     }
 
     public function store(Request $request): RedirectResponse
@@ -92,6 +92,7 @@ class ProductController extends Controller
             'description' => ['nullable', 'string', 'max:10000'],
             'label_prompt' => ['nullable', 'string', 'max:255'],
             'module' => ['nullable', Rule::in($moduleKeys)],
+            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ]);
         $module = $this->modules->get($base['module'] ?? null);
         $config = null;
@@ -112,6 +113,9 @@ class ProductController extends Controller
             'is_active' => $request->boolean('is_active'),
             'is_visible' => $request->boolean('is_visible'),
             'tax_exempt' => $request->boolean('tax_exempt'),
+            'trial_days' => (int) ($base['trial_days'] ?? 0),
+            'trial_requires_payment_method' => $request->boolean('trial_requires_payment_method'),
+            'allow_plan_changes' => $request->boolean('allow_plan_changes'),
         ];
     }
 

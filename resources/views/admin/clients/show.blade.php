@@ -35,7 +35,7 @@
 <div data-panel="services" class="hidden"><x-card :flush="true">
     @if ($client->services->isEmpty())<x-empty icon="boxes" title="No services" />@else
     <table class="t"><thead><tr><th>Service</th><th>Status</th><th>Cycle</th><th class="right">Price</th><th>Next due</th></tr></thead><tbody>
-    @foreach ($client->services as $s)<tr><td><a href="{{ route('admin.services.show', $s) }}">{{ $s->title() }}</a></td><td><x-status :status="$s->status" /></td><td>{{ $s->billing_cycle->label() }}</td><td class="right">{{ money($s->amount, $s->currency) }}</td><td>{{ $s->next_due_date?->format('j M Y') ?? '—' }}</td></tr>@endforeach
+    @foreach ($client->services as $s)<tr><td><a href="{{ route('admin.services.show', $s) }}">{{ $s->title() }}</a></td><td><x-status :status="$s->status" />@if ($s->onTrial()) <span class="pill">Trial</span>@endif</td><td>{{ $s->billing_cycle->label() }}</td><td class="right">{{ money($s->amount, $s->currency) }}</td><td>{{ $s->next_due_date?->format('j M Y') ?? '—' }}</td></tr>@endforeach
     </tbody></table>@endif
 </x-card><div style="margin-top:12px"><a class="btn sm" href="{{ route('admin.services.create', ['client' => $client->id]) }}">Add service</a></div></div>
 <div data-panel="invoices" class="hidden"><x-card :flush="true">

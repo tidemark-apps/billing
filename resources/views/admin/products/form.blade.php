@@ -35,6 +35,15 @@
         </div>
         <p class="help" style="margin-top:8px">Amounts in major units (12.50). Add a row per cycle and currency; a client sees prices in their own currency, falling back to the store currency.</p>
     </x-card>
+    <x-card title="Trial and plan changes">
+        <div class="grid2">
+            <x-field name="trial_days" label="Free trial (days)" type="number" min="0" max="365" :value="$product->trial_days ?: 0" help="0 means no trial. Recurring orders start the service at once and are first invoiced when the trial ends. One trial per customer per product." />
+        </div>
+        <div class="grid2" style="margin-top:16px">
+            <x-field name="trial_requires_payment_method" type="checkbox" label="Require a saved payment method to start a trial" :value="$product->trial_requires_payment_method" />
+            <x-field name="allow_plan_changes" type="checkbox" label="Customers can change plan" help="Lets customers upgrade or downgrade to other plans in the same group from the client area." :value="$product->allow_plan_changes" />
+        </div>
+    </x-card>
     @include('admin.products.meters')
     <x-card title="Provisioning">
         <x-field name="module" label="Module" type="select" :options="['' => 'None (manual service)'] + collect($modules)->map->label()->all()" :value="$product->module" data-reveal="module" help="What happens when this product is paid for." />

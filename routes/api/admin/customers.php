@@ -40,6 +40,9 @@ Route::middleware(['ability:services.read', BindAfterAuth::class])->group(functi
     Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
     Route::get('/services/{service}', [ServiceController::class, 'show'])->name('services.show');
     Route::get('/services/{service}/logs', [ServiceController::class, 'logs'])->name('services.logs');
+    Route::get('/services/{service}/plan-options', [ServiceController::class, 'planOptions'])->name('services.plan-options');
+    Route::post('/services/{service}/plan-change/preview', [ServiceController::class, 'planPreview'])->name('services.plan-change.preview');
+    Route::get('/services/{service}/plan-changes', [ServiceController::class, 'planChanges'])->name('services.plan-changes');
 });
 Route::middleware(['ability:services.write', BindAfterAuth::class])->group(function () {
     Route::post('/services', [ServiceController::class, 'store'])->name('services.store');
@@ -49,6 +52,10 @@ Route::middleware(['ability:services.write', BindAfterAuth::class])->group(funct
     Route::post('/services/{service}/unsuspend', [ServiceController::class, 'unsuspend'])->name('services.unsuspend');
     Route::post('/services/{service}/terminate', [ServiceController::class, 'terminate'])->name('services.terminate');
     Route::post('/services/{service}/cancel', [ServiceController::class, 'cancel'])->name('services.cancel');
+    Route::post('/services/{service}/trial/extend', [ServiceController::class, 'extendTrial'])->name('services.trial.extend');
+    Route::post('/services/{service}/trial/end', [ServiceController::class, 'endTrial'])->name('services.trial.end');
+    Route::post('/services/{service}/plan-change', [ServiceController::class, 'planChange'])->name('services.plan-change');
+    Route::delete('/services/{service}/plan-change', [ServiceController::class, 'cancelPlanChange'])->name('services.plan-change.cancel');
     Route::post('/services/{service}/reveal', [ServiceController::class, 'reveal'])->name('services.reveal');
     Route::post('/services/{service}/actions/{action}', [ServiceController::class, 'action'])->name('services.action');
 });
