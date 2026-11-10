@@ -3,7 +3,7 @@
 # (Or skip the installer: set BILLING_ADMIN_EMAIL and BILLING_ADMIN_PASSWORD below for an unattended first run.)
 services:
   billing:
-    image: ghcr.io/tidemark-analytics/tidemark-billing:latest
+    image: ghcr.io/tidemark-apps/billing:latest
     # build: .          # uncomment to build from this checkout instead
     restart: unless-stopped
     ports:

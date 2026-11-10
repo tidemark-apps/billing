@@ -57,7 +57,7 @@ Requirements: PHP 8.3+, `mbstring`, `openssl`, `pdo` + one of `pdo_sqlite` / `pd
 docker compose up -d
 ```
 
-Open <http://localhost:8080/install>. Or skip the installer by setting `BILLING_ADMIN_EMAIL` and `BILLING_ADMIN_PASSWORD` in [`docker-compose.yml`](docker-compose.yml). Data (the SQLite database, `.env`, logs and extra plugins in `/data/plugins`) lives in the `billing-data` volume. The image runs the scheduler and a queue worker for you. For MariaDB see [`docker-compose.mysql.yml`](docker-compose.mysql.yml).
+The image is `ghcr.io/tidemark-apps/billing` (tags `latest`, `0.1` and exact versions such as `0.1.0`; amd64 and arm64). Open <http://localhost:8080/install>. Or skip the installer by setting `BILLING_ADMIN_EMAIL` and `BILLING_ADMIN_PASSWORD` in [`docker-compose.yml`](docker-compose.yml). Data (the SQLite database, `.env`, logs and extra plugins in `/data/plugins`) lives in the `billing-data` volume. The image runs the scheduler and a queue worker for you. For MariaDB see [`docker-compose.mysql.yml`](docker-compose.mysql.yml).
 
 ## Using the API
 

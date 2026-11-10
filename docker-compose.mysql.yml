@@ -2,7 +2,7 @@
 # At http://localhost:8080/install choose "MySQL / MariaDB" with host "db", database "billing", user "billing".
 services:
   billing:
-    image: ghcr.io/tidemark-analytics/tidemark-billing:latest
+    image: ghcr.io/tidemark-apps/billing:latest
     restart: unless-stopped
     depends_on:
       db:
