@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-10
+
 ### Changed
 - On a hosted install, outgoing webhooks are only sent to public addresses and do not follow redirects. Self-hosted installs are unchanged.
 
