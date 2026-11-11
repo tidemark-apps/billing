@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- The "Powered by Tidemark Billing" link in the footer now goes to the Tidemark Billing page (hellotidemark.com/billing/) instead of the Tidemark Analytics site. The address is `billing.product_url` in `config/billing.php`.
+
 ## [0.6.3] - 2026-11-10
 
 ### Changed

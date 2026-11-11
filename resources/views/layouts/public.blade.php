@@ -19,7 +19,7 @@
     @include('partials.flash')
     @yield('content')
 </main>
-<div class="pubfoot"><a href="https://www.tidemarkanalytics.com" rel="noopener">Powered by Tidemark Billing</a></div>
+<div class="pubfoot"><a href="{{ config('billing.product_url') }}" rel="noopener">Powered by Tidemark Billing</a></div>
 <script src="{{ asset('assets/js/app.js') }}?v={{ @filemtime(public_path('assets/js/app.js')) }}" defer></script>
 @stack('scripts')
 </body>

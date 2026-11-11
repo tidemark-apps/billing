@@ -4,6 +4,9 @@ return [
     'name' => env('BILLING_NAME', 'Tidemark Billing'),
     'version' => trim(@file_get_contents(base_path('VERSION')) ?: 'dev'),
 
+    // Where the "Powered by" links in the footer point: the product's landing page.
+    'product_url' => 'https://hellotidemark.com/billing/',
+
     // The default store currency (ISO 4217). Can be changed in Settings → Billing.
     'currency' => env('BILLING_CURRENCY', 'USD'),
 
