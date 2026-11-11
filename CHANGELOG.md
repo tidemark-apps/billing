@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-11
+
 ### Added
 - Add-ons can be chosen while ordering a plan. The plan page lists the visible add-ons that fit the plan and have a price in the customer's currency, the review step shows them in the summary, and one order creates the plan and its add-ons together: one invoice, or free until the trial ends. An add-on starts once its plan is up.
 
