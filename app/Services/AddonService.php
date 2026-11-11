@@ -5,9 +5,12 @@ namespace App\Services;
 use App\Enums\ServiceStatus;
 use App\Events\ServiceCreated;
 use App\Jobs\ProvisionServiceJob;
+use App\Models\Invoice;
 use App\Models\Product;
+use App\Models\ProductPrice;
 use App\Models\Service;
 use App\Support\Activity;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -60,7 +63,7 @@ class AddonService
     /**
      * What adding an add-on would cost, without doing it.
      *
-     * @return array{product: Product, price: \App\Models\ProductPrice, amount: int, charge: int, trial: bool, period_start: \Illuminate\Support\Carbon, period_end: \Illuminate\Support\Carbon, next_due_date: \Illuminate\Support\Carbon}
+     * @return array{product: Product, price: ProductPrice, amount: int, charge: int, trial: bool, period_start: Carbon, period_end: Carbon, next_due_date: Carbon}
      */
     public function preview(Service $parent, Product $addon, bool $staff = false): array
     {
@@ -105,7 +108,7 @@ class AddonService
     /**
      * Attach an add-on. Returns the new service; its invoice (if there is a charge today) is on ->invoiceItems.
      *
-     * @return array{service: Service, invoice: ?\App\Models\Invoice}
+     * @return array{service: Service, invoice: ?Invoice}
      */
     public function add(Service $parent, Product $addon, bool $staff = false, bool $send = true): array
     {

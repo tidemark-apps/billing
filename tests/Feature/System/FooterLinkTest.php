@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\System;
 
+use App\Models\Client;
+use App\Services\InvoiceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +20,7 @@ class FooterLinkTest extends TestCase
 
     public function test_the_public_invoice_page_links_to_it_too(): void
     {
-        $invoice = app(\App\Services\InvoiceService::class)->create(\App\Models\Client::factory()->create(), [
+        $invoice = app(InvoiceService::class)->create(Client::factory()->create(), [
             ['description' => 'Hosting', 'unit_price' => 1000, 'taxable' => false],
         ], ['issue' => true, 'send' => false]);
 

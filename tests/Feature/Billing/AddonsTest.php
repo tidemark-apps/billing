@@ -5,12 +5,14 @@ namespace Tests\Feature\Billing;
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Models\Client;
+use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Service;
 use App\Services\AddonService;
 use App\Services\BillingRunner;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use App\Services\PlanChangeService;
 use App\Services\ProvisioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -111,7 +113,7 @@ class AddonsTest extends TestCase
         $this->travelTo($parent->trial_ends_at->copy()->addHour());
         app(BillingRunner::class)->generateRenewalInvoices();
         $this->assertDatabaseCount('invoices', 1);
-        $invoice = \App\Models\Invoice::firstOrFail();
+        $invoice = Invoice::firstOrFail();
         $this->assertEqualsCanonicalizing([$parent->id, $service->id], $invoice->items->pluck('service_id')->all());
     }
 
@@ -122,10 +124,10 @@ class AddonsTest extends TestCase
         $result = app(AddonService::class)->add($parent, $this->addon());
         app(PaymentService::class)->record($result['invoice'], 'test', $result['invoice']->total, 'x');
 
-        $before = \App\Models\Invoice::count();
+        $before = Invoice::count();
         app(BillingRunner::class)->generateRenewalInvoices();
-        $this->assertSame($before + 1, \App\Models\Invoice::count());
-        $latest = \App\Models\Invoice::latest('id')->first();
+        $this->assertSame($before + 1, Invoice::count());
+        $latest = Invoice::latest('id')->first();
         $this->assertCount(2, $latest->items);
     }
 
@@ -180,7 +182,7 @@ class AddonsTest extends TestCase
         app(AddonService::class)->add($parent, $this->addon());
 
         $this->expectExceptionMessage('Remove the add-ons');
-        app(\App\Services\PlanChangeService::class)->preview($parent->refresh(), $plan, BillingCycle::Annually, null, true);
+        app(PlanChangeService::class)->preview($parent->refresh(), $plan, BillingCycle::Annually, null, true);
     }
 
     public function test_admin_product_form_saves_kind_targets_and_grants(): void
