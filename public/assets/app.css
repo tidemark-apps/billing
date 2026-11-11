@@ -1582,3 +1582,12 @@ table.t td .subject:hover { text-decoration: underline; }
 .svc-cancel > summary { cursor: pointer; font-size: 13px; color: var(--muted-foreground); padding: 4px 2px; }
 .svc-cancel[open] > summary { margin-bottom: 12px; }
 @media (max-width: 520px) { .svc-addr .svc-k { flex-basis: 100%; } .svc-addr a { flex-basis: 100%; } .svc-addr .btn { margin-left: auto; } .svc-facts { grid-template-columns: 96px minmax(0, 1fr); gap: 8px 12px; } }
+
+/* Checkout account step */
+.co-form { padding: 20px; }
+.co-group { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.co-group > legend { font-size: 15px; font-weight: 600; padding: 0; margin-bottom: 2px; float: left; width: 100%; }
+.co-group > legend + * { clear: both; }
+@media (max-width: 560px) { .co-form .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.co-login { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--muted-foreground); }
+@media (min-width: 761px) { .co-summary { position: sticky; top: 16px; } }

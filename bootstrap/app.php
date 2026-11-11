@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\PlanLimitReached;
+use App\Http\Controllers\CheckoutAccountController;
 use App\Http\Middleware\AuthenticateApi;
 use App\Http\Middleware\EnsureActive;
 use App\Http\Middleware\EnsureCustomer;
@@ -49,7 +50,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // A password may legitimately start or end with a space.
         $middleware->trimStrings(except: ['imap_password']);
         $middleware->validateCsrfTokens(except: ['webhooks/*']);
-        $middleware->redirectGuestsTo(fn () => route('login'));
+        // A visitor who picked a plan gets the account step of checkout (sign up, or sign in) rather than the bare login page.
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->isMethod('GET') && $request->routeIs('portal.order.create') && CheckoutAccountController::registrationOpen()
+            ? route('checkout.account', $request->query())
+            : route('login'));
         $middleware->trustProxies(at: env('TRUSTED_PROXIES', '*') === '*' ? '*' : explode(',', (string) env('TRUSTED_PROXIES')));
     })
     ->withExceptions(function (Exceptions $exceptions): void {

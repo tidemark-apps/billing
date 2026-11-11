@@ -41,10 +41,14 @@ class PortalTest extends TestCase
         $this->get(route('store.show', Product::where('name', 'Visible Plan')->first()))->assertOk()->assertSee('Continue to review');
     }
 
-    public function test_guest_order_redirects_to_login(): void
+    public function test_guest_order_goes_to_the_account_step_and_to_login_when_sign_up_is_closed(): void
     {
         $p = Product::factory()->priced(500)->create();
-        $this->get(route('portal.order.create', ['product' => $p->slug, 'cycle' => 'monthly']))->assertRedirect(route('login'));
+        $query = ['product' => $p->slug, 'cycle' => 'monthly'];
+        $this->get(route('portal.order.create', $query))->assertRedirect(route('checkout.account', $query));
+
+        config(['billing.registration' => false]);
+        $this->get(route('portal.order.create', $query))->assertRedirect(route('login'));
     }
 
     public function test_order_flow_creates_invoice_and_payment_activates_service(): void

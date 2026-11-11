@@ -9,7 +9,7 @@
     $blocked = $needsMethod && ! $savedMethod;
 @endphp
 <x-page-head title="Review your order" sub="Check the details. Nothing is charged until you place the order." :back="$editUrl" back-label="Edit plan" />
-<x-steps :items="['Choose plan', 'Review', $trialAvailable ? 'Start trial' : 'Pay']" :current="2" />
+<x-steps :items="['Choose plan', 'Account', 'Review', $trialAvailable ? 'Start trial' : 'Pay']" :current="3" />
 @if (session('needs_payment_method') || $blocked)
 <div class="notice warn"><x-icon name="triangle-alert" :size="16" /><div>This free trial needs a saved payment method, so we can bill you when it ends. <a class="link-underline" href="{{ route('portal.payment-methods.index') }}">Add a payment method</a>, then come back to place your order.</div></div>
 @endif

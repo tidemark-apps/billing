@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- Checkout has an account step. A visitor who picks a plan without being signed in now sees a sign-up form (name, email, company, phone, billing address, VAT / tax ID, password) beside their order, with a "Log in" button for people who already have an account, instead of the bare login page. Either way they continue to the review step, and the address gives the review step the country it needs for tax. Add-ons and the reference carry through. If sign-up is turned off, visitors still get the login page. The order steps now read Choose plan, Account, Review, Pay.
 - A provisioning module can choose what the customer sees in the Details card of their service page (`clientDetails()`) and name the customer's buttons per service (`clientActionsFor()`). Modules that do neither behave as before.
 
 ### Changed

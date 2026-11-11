@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ImpersonateController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\CheckoutAccountController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\GatewayWebhookController;
 use App\Http\Controllers\InstallController;
@@ -35,6 +36,9 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', [AuthController::class, 'showReset'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'reset'])->name('password.update');
 });
+// The account step of checkout. Outside the guest group: a signed-in customer is sent on to the review step instead of home.
+Route::get('/checkout/account', [CheckoutAccountController::class, 'show'])->name('checkout.account');
+Route::post('/checkout/account', [CheckoutAccountController::class, 'store'])->middleware('throttle:10,1')->name('checkout.account.store');
 Route::get('/login/link/{user}', [AuthController::class, 'loginLink'])->middleware('throttle:20,1')->name('login.link');
 Route::get('/sso', [AuthController::class, 'sso'])->middleware('throttle:20,1')->name('sso');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
