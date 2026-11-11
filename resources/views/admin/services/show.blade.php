@@ -34,7 +34,7 @@
         <dt>Activated</dt><dd>{{ $service->activated_at?->format('j M Y H:i') ?? '—' }}</dd>
     </dl></x-card>
     <x-card title="Account details">
-        @if ($service->provision)<dl class="kv wide">@foreach ($service->provision as $k => $v)<dt>{{ str_replace('_', ' ', ucfirst($k)) }}</dt><dd>{{ is_scalar($v) ? $v : json_encode($v) }}</dd>@endforeach</dl>@else<span class="muted">Nothing stored by the module yet.</span>@endif
+        @if ($service->provision)<dl class="kv wide">@foreach ($service->provision as $k => $v)<dt>{{ str_replace('_', ' ', ucfirst($k)) }}</dt><dd>@if (is_array($v))<dl class="kv-sub">@foreach ($v as $sk => $sv)<dt>{{ str_replace('_', ' ', $sk) }}</dt><dd>{{ is_scalar($sv) || $sv === null ? (is_bool($sv) ? ($sv ? 'yes' : 'no') : ($sv ?? '—')) : json_encode($sv) }}</dd>@endforeach</dl>@else{{ $v }}@endif</dd>@endforeach</dl>@else<span class="muted">Nothing stored by the module yet.</span>@endif
         @if ($service->secrets)
             <hr>
             @if ($reveal)

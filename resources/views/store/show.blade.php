@@ -27,6 +27,20 @@
                         <span class="choice-price num"><b>{{ money($pr->amount, $currency) }}</b>@if ($pr->cycle->suffix()) <span class="muted small">{{ $pr->cycle->suffix() }}</span>@endif</span></label>
                 @endforeach
             </fieldset>
+            @if ($addons->isNotEmpty())
+            <fieldset class="choice-group"><legend>Add-ons <span class="muted small">(optional)</span></legend>
+                @foreach ($addons as $ad)
+                    <label class="choice"><input type="checkbox" name="addons[]" value="{{ $ad->slug }}" @checked(in_array((string) $ad->slug, $pickedAddons, true))>
+                        <span class="choice-body">
+                            <span class="choice-name">{{ $ad->name }}</span>
+                            @if (trim((string) $ad->description))<span class="choice-due muted small">{{ $ad->description }}</span>@endif
+                            @if ($trial)<span class="choice-due muted small">Free until your trial ends.</span>@endif
+                        </span>
+                        <span class="choice-price num">@foreach ($ad->checkout_prices as $ap)<span><b>{{ money($ap->amount, $currency) }}</b>@if ($ap->cycle->suffix()) <span class="muted small">{{ $ap->cycle->suffix() }}</span>@endif</span>@if (! $loop->last)<br>@endif @endforeach</span></label>
+                @endforeach
+                <p class="help m-0">Priced for the billing cycle you choose. You can also add or remove these later.</p>
+            </fieldset>
+            @endif
             @if ($product->label_prompt)<x-field name="label" :label="$product->label_prompt" :value="$label" required />@endif
             <div class="order-cta stack sm">
                 <button class="btn primary lg" type="submit">Continue to review</button>

@@ -39,6 +39,12 @@ class ProvisioningService
         if ($service->status === ServiceStatus::Active) {
             return $service;
         }
+        // An add-on ordered together with its plan waits until the plan is up; the plan's activation then brings it up (below).
+        if ($service->isAddon() && $service->parent?->status === ServiceStatus::Pending) {
+            $this->log($service, 'activate', true, 'Waiting for the plan it was ordered with.');
+
+            return $service;
+        }
         $module = $this->moduleFor($service);
 
         if ($module) {
@@ -63,12 +69,27 @@ class ProvisioningService
             'status' => ServiceStatus::Active,
             'activated_at' => now(),
             'provision_error' => null,
-            'next_due_date' => $service->next_due_date ?? ($service->billing_cycle->isRecurring() ? $service->billing_cycle->advance(now()) : null),
+            'next_due_date' => $service->next_due_date ?? ($service->isAddon() ? $service->parent?->next_due_date : null) ?? ($service->billing_cycle->isRecurring() ? $service->billing_cycle->advance(now()) : null),
         ])->save();
 
         event(new ServiceActivated($service));
         $this->notifier->serviceActivated($service);
         $this->syncParent($service);
+        // Add-ons that were ordered with this plan (paid on the same invoice, or free in its trial) start now. The plan was created before
+        // they were active, so if one of them grants something, tell the module once more.
+        $grants = false;
+        $this->cascading++;
+        try {
+            $service->addons()->where('status', ServiceStatus::Pending->value)->with('product')->get()->each(function (Service $a) use (&$grants) {
+                $a = $this->activate($a);
+                $grants = $grants || ($a->status === ServiceStatus::Active && ! empty($a->product?->grantList()));
+            });
+        } finally {
+            $this->cascading--;
+        }
+        if ($grants) {
+            $this->changePackage($service->refresh());
+        }
 
         return $service;
     }

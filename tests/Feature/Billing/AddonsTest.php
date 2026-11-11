@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\AddonService;
 use App\Services\BillingRunner;
 use App\Services\OrderService;
@@ -215,5 +216,102 @@ class AddonsTest extends TestCase
         $this->actingAs($this->admin())->get(route('admin.services.show', $parent))->assertOk()->assertSee('White label');
         $this->post(route('admin.services.addons.store', $parent), ['product_id' => $addon->id])->assertRedirect();
         $this->assertSame(1, $parent->addons()->count());
+    }
+
+    public function test_an_addon_ordered_with_the_plan_is_on_the_same_invoice_and_starts_after_the_plan(): void
+    {
+        $client = Client::factory()->create();
+        $plan = Product::factory()->priced(3000)->create(['name' => 'Plan']);
+        $addon = $this->addon(1000);
+
+        ['service' => $service, 'invoice' => $invoice] = app(OrderService::class)->place($client, $plan, BillingCycle::Monthly, ['trial' => false, 'addons' => [$addon->slug]]);
+
+        $this->assertCount(2, $invoice->items);
+        $this->assertSame(4000, $invoice->subtotal);
+        $child = $service->addons()->first();
+        $this->assertSame(ServiceStatus::Pending, $child->status);
+        $this->assertSame(1000, $child->amount);
+
+        app(PaymentService::class)->record($invoice, 'test', $invoice->total, 'paid');
+        $this->assertSame(ServiceStatus::Active, $service->refresh()->status);
+        $this->assertSame(ServiceStatus::Active, $child->refresh()->status);
+        $this->assertSame($service->next_due_date->toDateString(), $child->next_due_date->toDateString());
+        $this->assertTrue($service->grants('whitelabel'));
+    }
+
+    public function test_addons_ordered_with_a_trial_are_free_until_it_ends(): void
+    {
+        $client = Client::factory()->create();
+        $plan = Product::factory()->priced(3000)->create(['name' => 'Plan', 'trial_days' => 14, 'trial_requires_payment_method' => false]);
+        $addon = $this->addon(1000);
+
+        ['service' => $service, 'invoice' => $invoice] = app(OrderService::class)->place($client, $plan, BillingCycle::Monthly, ['addons' => [(string) $addon->id]]);
+
+        $this->assertNull($invoice);
+        $child = $service->addons()->first();
+        $this->assertSame(ServiceStatus::Active, $service->refresh()->status);
+        $this->assertSame(ServiceStatus::Active, $child->refresh()->status);
+        $this->assertSame($service->trial_ends_at->toDateString(), $child->trial_ends_at->toDateString());
+        $this->assertSame($service->next_due_date->toDateString(), $child->next_due_date->toDateString());
+    }
+
+    public function test_an_addon_that_does_not_fit_the_plan_or_cycle_cannot_be_ordered(): void
+    {
+        $client = Client::factory()->create();
+        $plan = Product::factory()->priced(3000)->create(['name' => 'Plan']);
+        $other = Product::factory()->priced(3000)->create(['name' => 'Other']);
+        $only = $this->addon(1000, ['addon_for' => [$other->id]]);
+
+        try {
+            app(OrderService::class)->place($client, $plan, BillingCycle::Monthly, ['addons' => [$only->slug]]);
+            $this->fail('accepted an add-on for another plan');
+        } catch (\DomainException) {
+            $this->assertSame(0, Service::count());
+        }
+        $any = $this->addon(1000, ['name' => 'Any']);
+        $this->expectException(\DomainException::class);
+        app(OrderService::class)->place($client, $plan, BillingCycle::Annually, ['addons' => [$any->slug]]);
+    }
+
+    public function test_the_plan_page_offers_the_addons_and_the_review_step_adds_them_to_the_total(): void
+    {
+        $plan = Product::factory()->priced(3000)->create(['name' => 'Plan', 'slug' => 'plan']);
+        $addon = $this->addon(1000, ['slug' => 'white-label', 'description' => 'Your own branding']);
+        $this->addon(500, ['name' => 'Hidden extra', 'slug' => 'hidden-extra', 'is_visible' => false]);
+        $user = $this->customer();
+
+        $this->get(route('store.show', $plan))->assertOk()->assertSee('White label')->assertSee('Your own branding')->assertDontSee('Hidden extra');
+
+        $this->actingAs($user)->get(route('portal.order.create', ['product' => 'plan', 'cycle' => 'monthly', 'addons' => ['white-label']]))
+            ->assertOk()->assertSee('White label (add-on)')->assertSee('$40.00');
+
+        $this->actingAs($user)->get(route('portal.order.create', ['product' => 'plan', 'cycle' => 'monthly', 'addons' => ['hidden-extra']]))
+            ->assertRedirect(route('store.show', ['product' => 'plan', 'cycle' => 'monthly']));
+    }
+
+    public function test_placing_the_order_from_the_form_creates_the_addon_service(): void
+    {
+        $plan = Product::factory()->priced(3000)->create(['name' => 'Plan', 'slug' => 'plan']);
+        $this->addon(1000, ['slug' => 'white-label']);
+        $user = $this->customer();
+        $client = $user->client;
+
+        $this->actingAs($user)->post(route('portal.order.store'), ['product' => 'plan', 'cycle' => 'monthly', 'addons' => ['white-label']])->assertRedirect();
+
+        $this->assertSame(1, Service::where('client_id', $client->id)->whereNotNull('parent_service_id')->count());
+        $this->assertSame(4000, Invoice::where('client_id', $client->id)->first()->subtotal);
+    }
+
+    public function test_the_admin_account_details_card_shows_nested_module_data_as_lines_not_one_json_string(): void
+    {
+        $parent = $this->parent(Client::factory()->create());
+        $parent->remember(['custom_domain' => ['host' => 'billing.example.com', 'state' => 'active', 'applied' => true, 'error' => null, 'dcv' => 'billing.example.com.abc.dcv.example.net']])->save();
+
+        $html = $this->actingAs(User::factory()->admin()->create())->get(route('admin.services.show', $parent))->assertOk()->getContent();
+
+        $this->assertStringContainsString('billing.example.com', $html);
+        $this->assertStringContainsString('class="kv-sub"', $html);
+        $this->assertStringNotContainsString('{&quot;host&quot;', $html);
+        $this->assertStringNotContainsString('"host":', $html);
     }
 }

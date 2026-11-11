@@ -1037,7 +1037,10 @@ table.t tr.click:hover .cell-l .t { color: var(--brand-ink); }
 /* ==== Tidemark Billing additions ================================================================================ */
 .narrow-doc { max-width: 880px; margin: 0 auto; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 10px 0 0; font-size: 13px; }
-.kv dt { color: var(--muted-foreground); } .kv dd { margin: 0; font-weight: 500; }
+.kv dt { color: var(--muted-foreground); } .kv dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.kv .kv-sub { margin: 0; padding: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; font-weight: 400; }
+.kv .kv-sub dt { color: var(--muted-foreground); }
+.kv .kv-sub dd { font-weight: 400; }
 .kv.wide { grid-template-columns: 180px 1fr; font-size: 14px; gap: 10px 16px; }
 .doc { padding: 0; overflow: hidden; }
 .doc-head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: 28px 32px 20px; }

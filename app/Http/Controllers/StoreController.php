@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\ProductPrice;
+use App\Services\AddonService;
 use App\Services\TaxService;
 use App\Support\Settings;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class StoreController extends Controller
         return view('store.portal', $this->catalogue());
     }
 
-    public function show(Request $request, Product $product, TaxService $tax)
+    public function show(Request $request, Product $product, TaxService $tax, AddonService $addons)
     {
         abort_unless($product->is_active && $product->is_visible && ! $product->isAddon(), 404);
         $product->load('prices');
@@ -49,6 +50,7 @@ class StoreController extends Controller
             'product' => $product, 'prices' => $prices, 'currency' => $currency, 'selected' => $selected, 'label' => (string) $request->query('label', ''),
             'savings' => $savings, 'due' => $due, 'trial' => $trial, 'trialUsed' => $trialUsed, 'rate' => $rate, 'known' => $client !== null,
             'metered' => $product->meters()->exists(),
+            'addons' => $addons->forPlan($product, $currency), 'pickedAddons' => array_map('strval', (array) $request->query('addons', [])),
         ]);
     }
 

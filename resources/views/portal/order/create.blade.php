@@ -3,7 +3,7 @@
 @section('content')
 @php
     $cur = $price->currency;
-    $editUrl = route('store.show', ['product' => $product->slug, 'cycle' => $cycle->value, 'label' => $label ?: null]);
+    $editUrl = route('store.show', ['product' => $product->slug, 'cycle' => $cycle->value, 'label' => $label ?: null, 'addons' => $addonRows->pluck('product.slug')->all() ?: null]);
     $needsMethod = $trialAvailable && $product->trial_requires_payment_method;
     $trialEnds = $trialAvailable ? now()->addDays($product->trial_days) : null;
     $blocked = $needsMethod && ! $savedMethod;
@@ -35,6 +35,7 @@
         <h2>Summary</h2>
         <dl class="summary-lines num">
             <div><dt>{{ $product->name }} ({{ strtolower($cycle->label()) }})</dt><dd>{{ money($price->amount, $cur) }}</dd></div>
+            @foreach ($addonRows as $row)<div><dt>{{ $row['product']->name }} (add-on)</dt><dd>{{ money($row['amount'], $cur) }}</dd></div>@endforeach
             @if ($price->setup_fee)<div><dt>Setup fee (one time)</dt><dd>{{ money($price->setup_fee, $cur) }}</dd></div>@endif
             @if ($tax)<div><dt>{{ $rate->name }} ({{ rtrim(rtrim(number_format($rate->rate, 3), '0'), '.') }}%)</dt><dd>{{ money($tax, $cur) }}</dd></div>@endif
             @if ($trialAvailable)
@@ -50,16 +51,17 @@
                 @if ($trialAvailable)
                     <li><x-icon name="check" :size="16" /><span>Your trial starts now and your service is set up straight away.</span></li>
                     <li><x-icon name="check" :size="16" /><span>On {{ $trialEnds->format('j M Y') }} we send your first invoice for {{ money($total, $cur) }}.</span></li>
+                    @if ($addonRows->isNotEmpty())<li><x-icon name="check" :size="16" /><span>Add-ons are free until then.</span></li>@endif
                     <li><x-icon name="check" :size="16" /><span>Cancel before then and you pay nothing.</span></li>
                 @else
                     <li><x-icon name="check" :size="16" /><span>We create an invoice for {{ money($total, $cur) }} and take you to pay it.</span></li>
                     <li><x-icon name="check" :size="16" /><span>Your service is set up as soon as the payment arrives.</span></li>
                 @endif
-                @if ($cycle->suffix())<li><x-icon name="check" :size="16" /><span>Renews at {{ money($price->amount, $cur) }} {{ $cycle->suffix() }} until you cancel.</span></li>@endif
+                @if ($cycle->suffix())<li><x-icon name="check" :size="16" /><span>Renews at {{ money($price->amount + $addonRows->sum('amount'), $cur) }} {{ $cycle->suffix() }} until you cancel.</span></li>@endif
             </ul>
         </div>
         <form method="POST" action="{{ route('portal.order.store') }}" class="stack sm">@csrf
-            <input type="hidden" name="product" value="{{ $product->slug }}"><input type="hidden" name="cycle" value="{{ $cycle->value }}"><input type="hidden" name="label" value="{{ $label }}">
+            <input type="hidden" name="product" value="{{ $product->slug }}"><input type="hidden" name="cycle" value="{{ $cycle->value }}"><input type="hidden" name="label" value="{{ $label }}">@foreach ($addonRows as $row)<input type="hidden" name="addons[]" value="{{ $row['product']->slug }}">@endforeach
             @if ($termsUrl)<p class="help m-0">By ordering you agree to the <a class="link-underline" href="{{ $termsUrl }}" rel="noopener" target="_blank">terms of service</a>.</p>@endif
             <button class="btn primary lg" type="submit" @disabled($blocked)>{{ $trialAvailable ? 'Start free trial' : 'Place order, pay '.money($total, $cur) }}</button>
             <a class="btn ghost" href="{{ route('portal.store') }}">Cancel</a>

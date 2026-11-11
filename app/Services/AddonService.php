@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Events\ServiceCreated;
 use App\Jobs\ProvisionServiceJob;
@@ -58,6 +59,44 @@ class AddonService
             ->filter(fn ($o) => $o['price'] !== null)
             ->map(fn ($o) => ['product' => $o['product'], 'amount' => $o['price']->amount])
             ->values();
+    }
+
+    /**
+     * Add-ons offered while ordering a plan: active, visible, meant for that plan, with a price in the currency.
+     *
+     * @return Collection<int, Product> each with a `checkout_prices` attribute (cycle value => ProductPrice)
+     */
+    public function forPlan(Product $plan, string $currency): Collection
+    {
+        return Product::with('prices')->where('kind', 'addon')->where('is_active', true)->where('is_visible', true)
+            ->orderBy('sort')->orderBy('name')->get()
+            ->filter(fn (Product $p) => $p->attachesTo($plan))
+            ->each(fn (Product $p) => $p->setAttribute('checkout_prices', $p->prices->where('currency', $currency)->keyBy(fn ($x) => $x->cycle->value)))
+            ->filter(fn (Product $p) => $p->checkout_prices->isNotEmpty())
+            ->values();
+    }
+
+    /**
+     * The add-ons picked at checkout, checked against the plan, the cycle and the currency.
+     *
+     * @param  array<int, string|int>  $slugs  product slugs (or ids)
+     * @return Collection<int, array{product: Product, price: ProductPrice}>
+     *
+     * @throws \DomainException
+     */
+    public function resolveForOrder(Product $plan, BillingCycle $cycle, string $currency, array $slugs): Collection
+    {
+        $offered = $this->forPlan($plan, $currency);
+        $out = collect();
+        foreach (array_unique(array_filter(array_map('strval', $slugs))) as $slug) {
+            $addon = $offered->first(fn (Product $p) => $p->slug === $slug || (string) $p->id === $slug)
+                ?? throw new \DomainException('One of the selected add-ons is not available for this plan.');
+            $price = $addon->checkout_prices->get($cycle->value)
+                ?? throw new \DomainException($addon->name.' has no '.strtolower($cycle->label()).' price.');
+            $out->push(['product' => $addon, 'price' => $price]);
+        }
+
+        return $out;
     }
 
     /**

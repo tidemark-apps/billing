@@ -6,6 +6,8 @@ use App\Enums\BillingCycle;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductPrice;
+use App\Services\AddonService;
+use App\Services\InternalAccounts;
 use App\Services\OrderService;
 use App\Services\TaxService;
 use Illuminate\Http\RedirectResponse;
@@ -13,7 +15,7 @@ use Illuminate\Http\Request;
 
 class OrderController extends PortalController
 {
-    public function create(Request $request, TaxService $tax)
+    public function create(Request $request, TaxService $tax, AddonService $addonService)
     {
         [$product, $cycle, $price] = $this->resolve($request);
         if (! $price) {
@@ -21,13 +23,23 @@ class OrderController extends PortalController
         }
         $client = $this->client();
         $rate = $product->tax_exempt ? null : $tax->rateFor($client);
+        try {
+            $picked = $addonService->resolveForOrder($product, $cycle, $price->currency, (array) $request->input('addons', []));
+        } catch (\DomainException $e) {
+            return redirect()->route('store.show', ['product' => $product->slug, 'cycle' => $cycle->value])->with('error', $e->getMessage());
+        }
+        $addonRows = $picked->map(fn ($a) => ['product' => $a['product'], 'price' => $a['price'], 'amount' => InternalAccounts::is($client) ? 0 : $a['price']->amount]);
         $net = $price->amount + $price->setup_fee;
         $taxAmount = $rate ? (int) round($net * $rate->rate / 100) : 0;
+        foreach ($addonRows as $row) {
+            $net += $row['amount'];
+            $taxAmount += $row['product']->tax_exempt || ! $rate ? 0 : (int) round($row['amount'] * $rate->rate / 100);
+        }
 
         return view('portal.order.create', [
             'product' => $product, 'cycle' => $cycle, 'price' => $price, 'rate' => $rate,
             'trialAvailable' => $price->cycle->isRecurring() && $product->trialAvailableTo($client),
-            'label' => $request->query('label'), 'tax' => $taxAmount, 'total' => $net + $taxAmount,
+            'label' => $request->query('label'), 'addonRows' => $addonRows, 'tax' => $taxAmount, 'total' => $net + $taxAmount,
             'savedMethod' => PaymentMethod::where('client_id', $client->id)->orderByDesc('is_default')->first(),
             'termsUrl' => config('billing.legal.terms'),
         ]);
@@ -36,16 +48,19 @@ class OrderController extends PortalController
     public function store(Request $request, OrderService $orders): RedirectResponse
     {
         [$product, $cycle, $price] = $this->resolve($request);
-        $data = $request->validate(['label' => [$product?->label_prompt ? 'required' : 'nullable', 'string', 'max:255']]);
+        $data = $request->validate([
+            'label' => [$product?->label_prompt ? 'required' : 'nullable', 'string', 'max:255'],
+            'addons' => ['nullable', 'array', 'max:20'], 'addons.*' => ['string', 'max:255'],
+        ]);
         if (! $price) {
             return redirect()->route('portal.store')->with('error', 'That product is not available for the selected billing cycle.');
         }
         $client = $this->client();
         try {
-            $result = $orders->place($client, $product, $cycle, ['label' => $data['label'] ?? null]);
+            $result = $orders->place($client, $product, $cycle, ['label' => $data['label'] ?? null, 'addons' => $data['addons'] ?? []]);
         } catch (\DomainException $e) {
             if ($product->trial_requires_payment_method && $product->trialAvailableTo($client) && ! PaymentMethod::where('client_id', $client->id)->exists()) {
-                return redirect()->route('portal.order.create', ['product' => $product->slug, 'cycle' => $cycle->value, 'label' => $data['label'] ?? null])
+                return redirect()->route('portal.order.create', ['product' => $product->slug, 'cycle' => $cycle->value, 'label' => $data['label'] ?? null, 'addons' => $data['addons'] ?? []])
                     ->with('error', $e->getMessage())->with('needs_payment_method', true);
             }
 
