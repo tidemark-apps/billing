@@ -11,6 +11,7 @@ use App\Models\Client;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
+use App\Services\AddonService;
 use App\Services\BillingRunner;
 use App\Services\Cancellations;
 use App\Services\InternalAccounts;
@@ -94,8 +95,8 @@ class ServiceController extends Controller
     {
         return view('admin.services.create', [
             'clients' => Client::orderBy('name')->get()->mapWithKeys(fn ($c) => [$c->id => $c->displayName().' ('.$c->email.')'])->all(),
-            'products' => Product::where('is_active', true)->orderBy('name')->pluck('name', 'id')->all(),
-            'trialProducts' => Product::where('is_active', true)->where('trial_days', '>', 0)->pluck('trial_days', 'id')->all(),
+            'products' => Product::plans()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all(),
+            'trialProducts' => Product::plans()->where('is_active', true)->where('trial_days', '>', 0)->pluck('trial_days', 'id')->all(),
             'cycles' => BillingCycle::options(),
             'selectedClient' => $request->integer('client') ?: null,
         ]);
@@ -180,7 +181,26 @@ class ServiceController extends Controller
             'history' => $service->planChanges()->with(['fromProduct', 'toProduct', 'invoice'])->get(),
             'preview' => $preview,
             'selected' => $selected,
+            'addons' => $service->addons()->with('product')->latest('id')->get(),
+            'addonOptions' => $this->addons()->available($service, true)->map(fn ($o) => $o + ['preview' => $this->addons()->preview($service, $o['product'], true)]),
         ]);
+    }
+
+    private function addons(): AddonService
+    {
+        return app(AddonService::class);
+    }
+
+    public function addAddon(Request $request, Service $service): RedirectResponse
+    {
+        $data = $request->validate(['product_id' => ['required', 'integer']]);
+        try {
+            $result = $this->addons()->add($service, Product::findOrFail((int) $data['product_id']), true);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.services.show', $service)->with('status', $result['invoice'] ? 'Add-on added. An invoice for the rest of this period was sent.' : 'Add-on added.');
     }
 
     /** Secrets are only rendered in response to this explicit, logged request. */

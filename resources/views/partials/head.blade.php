@@ -3,8 +3,12 @@
 <title>{!! ($title ?? null) ? $title.' · ' : '' !!}{{ \App\Support\Settings::get('company.name') ?: config('billing.name') }}</title>
 <meta name="robots" content="noindex">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+@if (\App\Support\Plan::whitelabel())
+@if ($icon = \App\Support\Settings::get('company.logo_url'))<link rel="icon" href="{{ $icon }}">@endif
+@else
 <link rel="icon" href="{{ asset('assets/favicon.svg') }}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{ asset('assets/apple-touch-icon.png') }}">
+@endif
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">

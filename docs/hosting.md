@@ -17,7 +17,7 @@ For a provider that runs one install per customer. Self-hosters can ignore all o
 {"name": "starter", "limits": {"clients": 100, "staff": 2}, "suspended": false, "suspended_message": "Payment failed."}
 ```
 
-A missing file, or a missing or null limit, means no limit. At a limit, new clients and new active staff users are refused (a message on the web, a 422 from the API); existing ones keep working. `suspended: true` shows a banner on every admin and portal page. `php artisan billing:usage` prints the plan, limits and usage as one line of JSON.
+A missing file, or a missing or null limit, means no limit. At a limit, new clients and new active staff users are refused (a message on the web, a 422 from the API); existing ones keep working. `suspended: true` shows a banner on every admin and portal page. `"whitelabel": true` removes the Tidemark branding: the "Powered by Tidemark Billing" footers and the Tidemark favicon go away, and the admin header shows the company logo or name. `php artisan billing:usage` prints the plan, limits, white label flag and usage as one line of JSON.
 
 ## Sign-in links from the host
 

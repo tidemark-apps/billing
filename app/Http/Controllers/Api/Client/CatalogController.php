@@ -15,7 +15,7 @@ class CatalogController extends ApiController
     public function products(Request $request)
     {
         $this->identify($request);
-        $query = Product::with('prices', 'group', 'meters.prices')->where('is_active', true)->where('is_visible', true)->orderBy('sort')->orderBy('name');
+        $query = Product::plans()->with('prices', 'group', 'meters.prices')->where('is_active', true)->where('is_visible', true)->orderBy('sort')->orderBy('name');
         if ($request->filled('group_id')) {
             $query->where('product_group_id', $request->query('group_id'));
         }
@@ -29,7 +29,7 @@ class CatalogController extends ApiController
     public function product(Request $request, string $product): ProductResource
     {
         $this->identify($request);
-        $model = Product::with('prices', 'group', 'meters.prices')->where('is_active', true)->where('is_visible', true)
+        $model = Product::plans()->with('prices', 'group', 'meters.prices')->where('is_active', true)->where('is_visible', true)
             ->where(fn ($q) => is_numeric($product) ? $q->where('id', $product) : $q->where('slug', $product))->firstOrFail();
 
         return new ProductResource($model);

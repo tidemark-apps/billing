@@ -19,6 +19,23 @@
             <x-field name="tax_exempt" type="checkbox" label="Tax exempt" :value="$product->tax_exempt" />
         </div>
     </x-card>
+    <x-card title="Type">
+        <x-field name="kind" label="What is this?" type="select" :options="['plan' => 'A plan (ordered on its own)', 'addon' => 'An add-on (added to an existing service)']" :value="$product->kind ?: 'plan'" data-reveal="kind" help="An add-on is not listed in the store. Customers add it to a service from the client area; it bills on that service's cycle and renewal date, so give it a price for each cycle your plans use." />
+        <div class="stack hidden mt-16" data-reveal-group="kind" data-reveal-for="addon">
+            <fieldset class="choice-group"><legend>Can be added to</legend>
+                @forelse ($plans as $id => $name)
+                <label class="choice"><input type="checkbox" name="addon_for[]" value="{{ $id }}" @checked(in_array($id, (array) old('addon_for', $product->addon_for ?? [])))><span><b>{{ $name }}</b></span></label>
+                @empty<p class="help">No plans yet.</p>@endforelse
+                <p class="help">Tick none to allow every plan.</p>
+            </fieldset>
+            <fieldset class="choice-group"><legend>What it switches on</legend>
+                @foreach (config('billing.grants') as $key => $label)
+                <label class="choice"><input type="checkbox" name="grants[]" value="{{ $key }}" @checked(in_array($key, (array) old('grants', $product->grants ?? [])))><span><b>{{ $label }}</b></span></label>
+                @endforeach
+                <p class="help">Only used by provisioning modules that support it. Leave empty for an add-on that is just a billing line.</p>
+            </fieldset>
+        </div>
+    </x-card>
     <x-card title="Pricing">
         @error('prices')<div class="alert mb-16" role="alert">{{ $message }}</div>@enderror
         <div data-repeater data-next="{{ count($prices) }}" data-min="0">

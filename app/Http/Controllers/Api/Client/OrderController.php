@@ -20,7 +20,7 @@ class OrderController extends ApiController
             'billing_cycle' => ['required', Rule::enum(BillingCycle::class)],
             'label' => ['nullable', 'string', 'max:255'],
         ]);
-        $product = Product::where('is_visible', true)->where('is_active', true)->find($data['product_id']);
+        $product = Product::plans()->where('is_visible', true)->where('is_active', true)->find($data['product_id']);
         abort_unless($product, 404, 'Product not found.');
 
         $order = $orders->place($this->client($request), $product, BillingCycle::from($data['billing_cycle']), ['label' => $data['label'] ?? null]);

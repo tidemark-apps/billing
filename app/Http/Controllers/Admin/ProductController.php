@@ -118,7 +118,13 @@ class ProductController extends Controller
             'label_prompt' => ['nullable', 'string', 'max:255'],
             'module' => ['nullable', Rule::in($moduleKeys)],
             'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'kind' => ['nullable', Rule::in(['plan', 'addon'])],
+            'addon_for' => ['nullable', 'array'],
+            'addon_for.*' => ['integer', Rule::exists('products', 'id')->where('kind', 'plan')],
+            'grants' => ['nullable', 'array'],
+            'grants.*' => [Rule::in(array_keys(config('billing.grants', [])))],
         ]);
+        $addon = ($base['kind'] ?? 'plan') === 'addon';
         $module = $this->modules->get($base['module'] ?? null);
         $config = null;
         if ($module) {
@@ -138,7 +144,10 @@ class ProductController extends Controller
             'is_active' => $request->boolean('is_active'),
             'is_visible' => $request->boolean('is_visible'),
             'tax_exempt' => $request->boolean('tax_exempt'),
-            'trial_days' => (int) ($base['trial_days'] ?? 0),
+            'kind' => $addon ? 'addon' : 'plan',
+            'addon_for' => $addon && ! empty($base['addon_for']) ? array_values(array_map('intval', $base['addon_for'])) : null,
+            'grants' => $addon && ! empty($base['grants']) ? array_values($base['grants']) : null,
+            'trial_days' => $addon ? 0 : (int) ($base['trial_days'] ?? 0),
             'trial_requires_payment_method' => $request->boolean('trial_requires_payment_method'),
             'allow_plan_changes' => $request->boolean('allow_plan_changes'),
         ];
@@ -205,6 +214,7 @@ class ProductController extends Controller
 
         return [
             'product' => $product,
+            'plans' => Product::plans()->when($product->exists, fn ($q) => $q->where('id', '!=', $product->id))->orderBy('name')->pluck('name', 'id')->all(),
             'groups' => ['' => 'No group'] + ProductGroup::orderBy('name')->pluck('name', 'id')->all(),
             'modules' => $this->modules->all(),
             'cycles' => BillingCycle::options(),

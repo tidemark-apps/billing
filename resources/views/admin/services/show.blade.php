@@ -45,6 +45,7 @@
         @endif
     </x-card>
 </div>
+@include('admin.services._addons')
 @include('admin.services._plan-change')
 @include('admin.usage.panel', ['service' => $service])
 {!! extensions('admin.service', ['service' => $service]) !!}

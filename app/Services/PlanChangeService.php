@@ -60,7 +60,7 @@ class PlanChangeService
         if (! $current) {
             return collect();
         }
-        $products = Product::with('prices')->where('is_active', true)
+        $products = Product::plans()->with('prices')->where('is_active', true)
             ->when(! $staff, fn ($q) => $q->where('is_visible', true)->where('product_group_id', $current->product_group_id))
             ->orderBy('sort')->orderBy('name')->get();
 
@@ -91,7 +91,7 @@ class PlanChangeService
         if (! $this->changeable($service)) {
             throw new \DomainException('Only an active, recurring service that is not being cancelled can change plan.');
         }
-        if (! $to->is_active) {
+        if (! $to->is_active || $to->isAddon()) {
             throw new \DomainException('That plan is not available.');
         }
         if (! $staff && (! $to->is_visible || $to->product_group_id !== $service->product->product_group_id)) {
@@ -105,6 +105,10 @@ class PlanChangeService
         }
         $price = $to->prices()->where('cycle', $cycle->value)->where('currency', $service->currency)->first()
             ?? throw new \DomainException('That plan has no '.strtolower($cycle->label()).' price in '.$service->currency.'.');
+
+        if ($cycle !== $service->billing_cycle && $service->addons()->whereIn('status', ['pending', 'active', 'suspended'])->exists()) {
+            throw new \DomainException('Remove the add-ons before changing the billing cycle: they bill on the same cycle as the plan.');
+        }
 
         $service->loadMissing('client');
         $internal = InternalAccounts::is($service->client);

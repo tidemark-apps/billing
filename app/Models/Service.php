@@ -51,6 +51,34 @@ class Service extends Model
         return $this->belongsTo(Product::class)->withTrashed();
     }
 
+    /** The service an add-on is attached to. */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_service_id')->withTrashed();
+    }
+
+    public function addons(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_service_id');
+    }
+
+    public function isAddon(): bool
+    {
+        return $this->parent_service_id !== null;
+    }
+
+    /** Add-ons that count right now: active ones only (a suspended or ended add-on switches nothing on). */
+    public function activeAddons()
+    {
+        return $this->addons()->where('status', ServiceStatus::Active->value)->with('product')->get();
+    }
+
+    /** Whether an active add-on grants a feature (see config billing.grants), e.g. "whitelabel". */
+    public function grants(string $key): bool
+    {
+        return $this->activeAddons()->contains(fn (self $a) => in_array($key, $a->product?->grantList() ?? [], true));
+    }
+
     public function planChanges(): HasMany
     {
         return $this->hasMany(PlanChange::class)->latest('id');

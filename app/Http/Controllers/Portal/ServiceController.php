@@ -6,6 +6,7 @@ use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Models\Product;
 use App\Models\Service;
+use App\Services\AddonService;
 use App\Services\Cancellations;
 use App\Services\PlanChangeService;
 use App\Services\ProvisioningService;
@@ -58,6 +59,8 @@ class ServiceController extends PortalController
             'scheduledChange' => $service->scheduledChange()?->load('toProduct'),
             'preview' => $preview,
             'selected' => $selected,
+            'addons' => $service->addons()->with('product')->whereIn('status', ['pending', 'active', 'suspended'])->latest('id')->get(),
+            'addonOptions' => app(AddonService::class)->available($service)->map(fn ($o) => $o + ['preview' => app(AddonService::class)->preview($service, $o['product'])]),
             'refundPreview' => Cancellations::refundsByDefault() && $service->status === ServiceStatus::Active ? $this->cancellations->refundPreview($service) : null,
         ]);
     }
@@ -122,6 +125,22 @@ class ServiceController extends PortalController
             : 'Your plan has been changed.'.($change->invoice_id ? ' An invoice for the difference is ready to pay.' : '');
 
         return redirect($change->invoice_id ? route('portal.invoices.show', $change->invoice_id) : route('portal.services.show', $service))->with('status', $message);
+    }
+
+    public function addAddon(Request $request, string $service): RedirectResponse
+    {
+        $service = $this->service($service);
+        $data = $request->validate(['product_id' => ['required', 'integer']]);
+        try {
+            $result = app(AddonService::class)->add($service, Product::findOrFail((int) $data['product_id']));
+        } catch (\DomainException $e) {
+            return redirect()->route('portal.services.show', $service)->with('error', $e->getMessage());
+        }
+        Activity::log('service.addon_requested', $service, 'Customer added '.$result['service']->product?->name);
+
+        return $result['invoice']
+            ? redirect()->route('portal.invoices.show', $result['invoice'])->with('status', 'Add-on added. Pay the invoice to switch it on.')
+            : redirect()->route('portal.services.show', $service)->with('status', 'Add-on added.');
     }
 
     public function cancelPlanChange(string $service): RedirectResponse

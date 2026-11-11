@@ -22,6 +22,9 @@ use App\Support\ProvisionResult;
  */
 class ProvisioningService
 {
+    /** Above zero while an action on a parent is being repeated on its add-ons, so each add-on does not re-sync the parent. */
+    private int $cascading = 0;
+
     public function __construct(private readonly ModuleRegistry $modules, private readonly Notifier $notifier) {}
 
     public function moduleFor(Service $service): ?ProvisioningModule
@@ -65,6 +68,7 @@ class ProvisioningService
 
         event(new ServiceActivated($service));
         $this->notifier->serviceActivated($service);
+        $this->syncParent($service);
 
         return $service;
     }
@@ -83,6 +87,8 @@ class ProvisioningService
         }
         $service->update(['status' => ServiceStatus::Suspended, 'suspended_at' => now(), 'provision_error' => null]);
         event(new ServiceSuspended($service, ['reason' => $reason]));
+        $this->cascade($service, fn (Service $a) => $a->data('suspended_with_parent') ? null : $this->suspendWithParent($a, $reason), [ServiceStatus::Active]);
+        $this->syncParent($service);
 
         return $service;
     }
@@ -101,6 +107,8 @@ class ProvisioningService
         }
         $service->update(['status' => ServiceStatus::Active, 'suspended_at' => null, 'provision_error' => null]);
         event(new ServiceUnsuspended($service));
+        $this->cascade($service, fn (Service $a) => $a->data('suspended_with_parent') ? $this->unsuspendWithParent($a) : null, [ServiceStatus::Suspended]);
+        $this->syncParent($service);
 
         return $service;
     }
@@ -120,6 +128,8 @@ class ProvisioningService
         }
         $service->update(['status' => ServiceStatus::Terminated, 'terminated_at' => now(), 'provision_error' => null, 'cancel_at_period_end' => false]);
         event(new ServiceTerminated($service));
+        $this->cascade($service, fn (Service $a) => $this->terminate($a), [ServiceStatus::Active, ServiceStatus::Suspended]);
+        $this->syncParent($service);
 
         return $service;
     }
@@ -128,6 +138,7 @@ class ProvisioningService
     public function cancel(Service $service, bool $immediately = false, ?string $reason = null): Service
     {
         if ($immediately || $service->status === ServiceStatus::Pending || ! $service->next_due_date || $service->onTrial()) {
+            $this->cascade($service, fn (Service $a) => $this->cancel($a, true, 'Cancelled with '.$service->title()), [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended]);
             $service = $this->terminate($service);
             if ($service->status === ServiceStatus::Terminated) {
                 $service->update(['status' => ServiceStatus::Cancelled, 'cancelled_at' => now(), 'cancel_reason' => $reason]);
@@ -137,6 +148,7 @@ class ProvisioningService
             return $service;
         }
         $service->update(['cancel_at_period_end' => true, 'cancel_reason' => $reason]);
+        $service->addons()->whereIn('status', ['active', 'suspended'])->update(['cancel_at_period_end' => true, 'cancel_reason' => 'Cancelled with '.$service->title()]);
         $this->log($service, 'cancel_requested', true, 'Will be cancelled on '.$service->next_due_date->toDateString().'.');
 
         return $service;
@@ -186,6 +198,48 @@ class ProvisioningService
             });
 
         return $count;
+    }
+
+    /** Repeat an action on a service's add-ons that are in one of the given states. */
+    private function cascade(Service $parent, \Closure $act, array $states): void
+    {
+        if ($parent->isAddon()) {
+            return;
+        }
+        $this->cascading++;
+        try {
+            $parent->addons()->whereIn('status', array_map(fn (ServiceStatus $s) => $s->value, $states))->get()->each($act);
+        } finally {
+            $this->cascading--;
+        }
+    }
+
+    private function suspendWithParent(Service $addon, ?string $reason): void
+    {
+        $addon = $this->suspend($addon, $reason);
+        if ($addon->status === ServiceStatus::Suspended) {
+            $addon->remember(['suspended_with_parent' => true])->save();
+        }
+    }
+
+    private function unsuspendWithParent(Service $addon): void
+    {
+        $addon = $this->unsuspend($addon);
+        if ($addon->status === ServiceStatus::Active) {
+            $addon->remember(['suspended_with_parent' => false])->save();
+        }
+    }
+
+    /** An add-on that grants something changed state: let the parent's module re-read what it is entitled to. */
+    private function syncParent(Service $service): void
+    {
+        if (! $service->isAddon() || $this->cascading > 0 || empty($service->product?->grantList())) {
+            return;
+        }
+        $parent = $service->parent;
+        if ($parent && $parent->status->isLive()) {
+            $this->changePackage($parent);
+        }
     }
 
     private function pickServer(Service $service, ProvisioningModule $module): ?Server

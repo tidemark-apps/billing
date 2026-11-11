@@ -111,6 +111,11 @@ class ProductController extends ApiController
             'is_visible' => ['nullable', 'boolean'],
             'tax_exempt' => ['nullable', 'boolean'],
             'sort' => ['nullable', 'integer', 'min:0'],
+            'kind' => ['sometimes', Rule::in(['plan', 'addon'])],
+            'addon_for' => ['nullable', 'array'],
+            'addon_for.*' => ['integer', Rule::exists('products', 'id')->where('kind', 'plan')],
+            'grants' => ['nullable', 'array'],
+            'grants.*' => [Rule::in(array_keys(config('billing.grants', [])))],
             'trial_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
             'trial_requires_payment_method' => ['sometimes', 'boolean'],
             'allow_plan_changes' => ['sometimes', 'boolean'],
@@ -131,7 +136,7 @@ class ProductController extends ApiController
      */
     private function attributes(array $data, ?Product $existing = null): array
     {
-        $out = collect($data)->only(['name', 'description', 'product_group_id', 'label_prompt', 'is_active', 'is_visible', 'tax_exempt', 'sort', 'trial_days', 'trial_requires_payment_method', 'allow_plan_changes'])->all();
+        $out = collect($data)->only(['name', 'description', 'product_group_id', 'label_prompt', 'is_active', 'is_visible', 'tax_exempt', 'sort', 'trial_days', 'trial_requires_payment_method', 'allow_plan_changes', 'kind', 'addon_for', 'grants'])->all();
 
         $moduleKey = array_key_exists('module', $data) ? $data['module'] : $existing?->module;
         $module = $this->modules->get($moduleKey);

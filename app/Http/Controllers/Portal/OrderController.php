@@ -61,7 +61,7 @@ class OrderController extends PortalController
     /** @return array{0: Product, 1: BillingCycle, 2: ?ProductPrice} */
     private function resolve(Request $request): array
     {
-        $product = Product::with('prices')->where('slug', (string) $request->input('product'))->where('is_active', true)->where('is_visible', true)->firstOrFail();
+        $product = Product::plans()->with('prices')->where('slug', (string) $request->input('product'))->where('is_active', true)->where('is_visible', true)->firstOrFail();
         $cycle = BillingCycle::tryFrom((string) $request->input('cycle')) ?? abort(404);
 
         return [$product, $cycle, $product->priceFor($cycle, $this->client()->currency)];

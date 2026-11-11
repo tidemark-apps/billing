@@ -39,6 +39,7 @@
     </div>
 </x-card>
 @endif
+@include('portal.services._addons')
 @if ($canChangePlan && ($preview || $planOptions->isNotEmpty()))
 <x-card title="Change plan">
     @if ($preview)

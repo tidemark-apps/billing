@@ -5,6 +5,11 @@ return [
     'version' => trim(@file_get_contents(base_path('VERSION')) ?: 'dev'),
 
     // Where the "Powered by" links in the footer point: the product's landing page.
+    // What an add-on product can switch on for the service it is attached to (Products → add-on → "Grants").
+    'grants' => [
+        'whitelabel' => 'White label: remove Tidemark branding and allow a custom domain',
+    ],
+
     'product_url' => 'https://hellotidemark.com/billing/',
 
     // The default store currency (ISO 4217). Can be changed in Settings → Billing.

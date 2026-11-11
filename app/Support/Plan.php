@@ -19,7 +19,7 @@ class Plan
 {
     public const LIMITS = ['clients', 'staff', 'emails_per_day'];
 
-    /** @return array{name: ?string, limits: array<string, ?int>, suspended: bool, suspended_message: ?string} */
+    /** @return array{name: ?string, limits: array<string, ?int>, whitelabel: bool, suspended: bool, suspended_message: ?string} */
     public static function current(): array
     {
         $file = config('billing.plan_file');
@@ -34,9 +34,19 @@ class Plan
         return [
             'name' => is_string($data['name'] ?? null) ? $data['name'] : null,
             'limits' => $limits,
+            'whitelabel' => ($data['whitelabel'] ?? false) === true,
             'suspended' => ($data['suspended'] ?? false) === true,
             'suspended_message' => is_string($data['suspended_message'] ?? null) && $data['suspended_message'] !== '' ? $data['suspended_message'] : null,
         ];
+    }
+
+    /**
+     * White label: the host has switched off Tidemark branding for this install ({"whitelabel": true} in the plan file), so the
+     * "Powered by" footers, the Tidemark logo and the Tidemark favicon are not shown. Always false when there is no plan file.
+     */
+    public static function whitelabel(): bool
+    {
+        return self::current()['whitelabel'];
     }
 
     /** The host has suspended this install (for example an unpaid subscription): everything is shown with a banner. */
@@ -96,6 +106,7 @@ class Plan
         return [
             'plan' => $plan['name'],
             'suspended' => $plan['suspended'],
+            'whitelabel' => $plan['whitelabel'],
             'limits' => $plan['limits'],
             'usage' => $usage + ['invoices_last_30_days' => Invoice::query()->where('created_at', '>=', now()->subDays(30))->count()],
             'over_limit' => array_values(array_filter(self::LIMITS, fn ($k) => $plan['limits'][$k] !== null && $usage[$k] > $plan['limits'][$k])),

@@ -25,7 +25,7 @@ class StoreController extends Controller
 
     public function show(Request $request, Product $product, TaxService $tax)
     {
-        abort_unless($product->is_active && $product->is_visible, 404);
+        abort_unless($product->is_active && $product->is_visible && ! $product->isAddon(), 404);
         $product->load('prices');
         $currency = $this->currency();
         $prices = $product->pricesIn($currency);
@@ -90,7 +90,7 @@ class StoreController extends Controller
     private function catalogue(): array
     {
         $currency = $this->currency();
-        $products = Product::with('prices')->withCount('meters')->where('is_active', true)->where('is_visible', true)->orderBy('sort')->orderBy('name')->get()
+        $products = Product::plans()->with('prices')->withCount('meters')->where('is_active', true)->where('is_visible', true)->orderBy('sort')->orderBy('name')->get()
             ->map(function (Product $p) use ($currency) {
                 $prices = $p->pricesIn($currency);
                 $cur = $currency;

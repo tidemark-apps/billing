@@ -22,6 +22,8 @@
             <button class="btn ghost icon side-toggle" type="button" aria-label="Menu"><x-icon name="menu" :size="18" /></button>
             <a class="brand" href="{{ route($area === 'admin' ? 'admin.dashboard' : 'portal.dashboard') }}">
                 @if ($area === 'portal' && $logo)<img class="brand-logo" src="{{ $logo }}" alt="{{ $company }}">
+                @elseif ($area === 'admin' && $logo)<img class="brand-logo" src="{{ $logo }}" alt="{{ $company }}">
+                @elseif ($area === 'admin' && \App\Support\Plan::whitelabel())<span class="brand-name">{{ $company }}</span>
                 @elseif ($area === 'admin')<x-logo :size="26" /><span class="brand-name" style="margin-left:10px">Billing</span>
                 @else<span class="brand-name">{{ $company }}</span>@endif
             </a>
@@ -96,7 +98,7 @@
                 @include('partials.flash')
                 @include('partials.host-notices')
                 @yield('content')
-                <p class="muted small" style="text-align:center;padding-top:24px">Powered by <a href="{{ config('billing.product_url') }}" rel="noopener" style="text-decoration:underline;text-underline-offset:3px">Tidemark Billing</a> v{{ config('billing.version') }}</p>
+                @unless (\App\Support\Plan::whitelabel())<p class="muted small" style="text-align:center;padding-top:24px">Powered by <a href="{{ config('billing.product_url') }}" rel="noopener" style="text-decoration:underline;text-underline-offset:3px">Tidemark Billing</a> v{{ config('billing.version') }}</p>@endunless
             </div>
         </main>
     </div>

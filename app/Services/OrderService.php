@@ -35,6 +35,9 @@ class OrderService
         if (! $product->is_active) {
             throw new \DomainException('This product is not available.');
         }
+        if ($product->isAddon()) {
+            throw new \DomainException('Add-ons are added to an existing service, not ordered on their own.');
+        }
         $price = $product->priceFor($cycle, $client->currency)
             ?? throw new \DomainException('This product has no price for the selected billing cycle.');
 

@@ -27,6 +27,8 @@ class Product extends Model
     {
         return [
             'module_config' => 'array',
+            'addon_for' => 'array',
+            'grants' => 'array',
             'is_active' => 'boolean',
             'is_visible' => 'boolean',
             'tax_exempt' => 'boolean',
@@ -82,6 +84,33 @@ class Product extends Model
     {
         return $this->offersTrial()
             && ! Service::withTrashed()->where('client_id', $client->id)->where('product_id', $this->id)->whereNotNull('trial_ends_at')->exists();
+    }
+
+    /** Everything that can be ordered on its own (not add-ons). */
+    public function scopePlans($query)
+    {
+        return $query->where('kind', '!=', 'addon');
+    }
+
+    public function isAddon(): bool
+    {
+        return $this->kind === 'addon';
+    }
+
+    /** What an active add-on switches on for its parent service. Keys are the ones in config('billing.grants'). */
+    public function grantList(): array
+    {
+        return array_values(array_intersect(array_keys(config('billing.grants', [])), (array) $this->grants));
+    }
+
+    /** Whether this add-on can be attached to services of the given plan. */
+    public function attachesTo(?Product $plan): bool
+    {
+        if (! $this->isAddon() || ! $plan || $plan->isAddon()) {
+            return false;
+        }
+
+        return empty($this->addon_for) || in_array($plan->id, array_map('intval', $this->addon_for), true);
     }
 
     public function moduleOption(string $key, mixed $default = null): mixed
