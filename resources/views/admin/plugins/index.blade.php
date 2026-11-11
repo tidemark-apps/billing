@@ -2,12 +2,14 @@
 @section('title', 'Plugins')
 @section('content')
 <x-page-head title="Plugins" sub="Payment gateways, provisioning and licensing. Enable a plugin to switch its features on." />
+@unless (config('billing.hosted'))
 <div class="notice warn mb-16"><x-icon name="triangle-alert" :size="16" /><div><strong>Plugins run arbitrary PHP with full access to your billing data, files and database.</strong> Only install plugins from sources you trust, and review code you did not write.</div></div>
+@endunless
 
 <x-view-tabs :tabs="['all' => 'All', 'enabled' => 'Enabled', 'disabled' => 'Disabled', 'updates' => 'Updates pending']" :current="$view" :counts="$counts" label="Plugin views" />
 
 @if ($plugins->isEmpty())
-    <x-card><x-empty icon="puzzle" :title="$view === 'all' ? 'No plugins found' : 'No plugins in this view'" :text="$view === 'all' ? 'Plugins are folders inside '.$path.'. Upload one below and refresh this page.' : 'Nothing matches this view.'">
+    <x-card><x-empty icon="puzzle" :title="$view === 'all' ? 'No plugins found' : 'No plugins in this view'" :text="$view === 'all' ? (config('billing.hosted') ? 'No plugins are available on this install.' : 'Plugins are folders inside '.$path.'. Upload one below and refresh this page.') : 'Nothing matches this view.'">
         @if ($view !== 'all')<a class="btn" href="{{ route('admin.plugins.index') }}">Show all plugins</a>@endif
     </x-empty></x-card>
 @else
@@ -80,8 +82,10 @@
     </div>
     @if ($zip)<div class="setting-f"><span class="help">You confirm before an existing plugin is replaced.</span><button class="btn sm primary" type="submit"><x-icon name="upload" :size="14" /> Upload and install</button></div>@endif
 </form>
-@elseif (! $uploadEnabled)
+@elseif (! $uploadEnabled && ! config('billing.hosted'))
 <p class="help mt-16">Uploading and deleting plugins is turned off (<code>BILLING_ALLOW_PLUGIN_UPLOAD=false</code>). Put plugin folders in <code>{{ $path }}</code> by hand and press Enable.</p>
 @endif
+@unless (config('billing.hosted'))
 <p class="help mt-16">Building your own? Each plugin is a folder with a <code>plugin.json</code> manifest in <code>{{ $path }}</code>.</p>
+@endunless
 @endsection

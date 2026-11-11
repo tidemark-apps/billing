@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- On a hosted (Cloud) install the Plugins page no longer shows the "plugins run arbitrary PHP" warning or the hints about uploading and plugin folders, since customers cannot add plugins there.
+
 ## [0.7.2] - 2026-11-11
 
 ### Added

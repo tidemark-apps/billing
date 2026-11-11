@@ -84,6 +84,17 @@ class PluginZipInstallTest extends TestCase
         return $this->actingAs($this->admin())->post(route('admin.plugins.upload'), ['plugin' => new UploadedFile($zip, $name ?? 'plugin.zip', 'application/zip', null, true)]);
     }
 
+    public function test_a_hosted_install_does_not_show_the_upload_warnings_or_hints(): void
+    {
+        config(['billing.hosted' => true, 'billing.allow_plugin_upload' => false]);
+
+        $this->actingAs($this->admin())->get(route('admin.plugins.index'))->assertOk()
+            ->assertDontSee('arbitrary PHP')->assertDontSee('BILLING_ALLOW_PLUGIN_UPLOAD')->assertDontSee('Building your own');
+
+        config(['billing.hosted' => false]);
+        $this->actingAs($this->admin())->get(route('admin.plugins.index'))->assertOk()->assertSee('arbitrary PHP')->assertSee('BILLING_ALLOW_PLUGIN_UPLOAD')->assertSee('Building your own');
+    }
+
     public function test_valid_zip_installs_and_is_logged(): void
     {
         $this->upload($this->zip())->assertRedirect(route('admin.plugins.index'))->assertSessionHas('status');
