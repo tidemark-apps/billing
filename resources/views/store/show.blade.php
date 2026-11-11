@@ -33,10 +33,10 @@
                     <label class="choice"><input type="checkbox" name="addons[]" value="{{ $ad->slug }}" @checked(in_array((string) $ad->slug, $pickedAddons, true))>
                         <span class="choice-body">
                             <span class="choice-name">{{ $ad->name }}</span>
-                            @if (trim((string) $ad->description))<span class="choice-due muted small">{{ $ad->description }}</span>@endif
-                            @if ($trial)<span class="choice-due muted small">Free until your trial ends.</span>@endif
-                        </span>
-                        <span class="choice-price num">@foreach ($ad->checkout_prices as $ap)<span><b>{{ money($ap->amount, $currency) }}</b>@if ($ap->cycle->suffix()) <span class="muted small">{{ $ap->cycle->suffix() }}</span>@endif</span>@if (! $loop->last)<br>@endif @endforeach</span></label>
+                            @if (trim((string) $ad->description))<span class="choice-meta muted">{{ $ad->description }}</span>@endif
+                            <span class="choice-meta num">@foreach ($ad->checkout_prices->sortBy(fn ($ap) => $ap->cycle->months()) as $ap)<span class="nowrap"><span class="choice-amount">{{ money($ap->amount, $currency) }}</span>@if ($ap->cycle->suffix()) <span class="muted">{{ $ap->cycle->suffix() }}</span>@endif</span>@if (! $loop->last) <span class="muted">·</span> @endif @endforeach</span>
+                            @if ($trial)<span class="choice-meta muted">Free until your trial ends.</span>@endif
+                        </span></label>
                 @endforeach
                 <p class="help m-0">Priced for the billing cycle you choose. You can also add or remove these later.</p>
             </fieldset>

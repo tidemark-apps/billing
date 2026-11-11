@@ -1321,6 +1321,8 @@ table.t td .subject:hover { text-decoration: underline; }
 .choice-price { white-space: nowrap; text-align: right; display: block; }
 .choice-price > span, .choice-price > b { display: inline; }
 .choice .choice-due { display: none; }
+.choice-meta { display: block; font-size: 13px; margin-top: 2px; }
+.choice-amount { font-weight: 500; color: var(--foreground); }
 .choice:has(input:checked) .choice-due { display: block; }
 .summary-next { padding-top: 12px; border-top: 1px solid var(--border); font-size: 14px; }
 .order-done { display: flex; gap: 16px; align-items: flex-start; padding: 20px 24px; border-color: var(--success); }
