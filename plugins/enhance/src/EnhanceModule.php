@@ -167,6 +167,11 @@ class EnhanceModule extends AbstractModule
         return ['login' => 'Log in to control panel'];
     }
 
+    public function clientDetails(Service $service): ?array
+    {
+        return array_filter(['Domain' => $service->data('domain')]);
+    }
+
     public function runAction(Service $service, string $action, string $area): ProvisionResult
     {
         if ($action !== 'login') {

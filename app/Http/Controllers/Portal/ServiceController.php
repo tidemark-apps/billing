@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Service;
 use App\Services\AddonService;
@@ -54,6 +55,7 @@ class ServiceController extends PortalController
             'service' => $service,
             'actions' => $module && $service->status === ServiceStatus::Active ? (method_exists($module, 'clientActionsFor') ? $module->clientActionsFor($service) : $module->clientActions()) : [],
             'details' => $module && method_exists($module, 'clientDetails') ? $module->clientDetails($service) : null,
+            'paymentMethod' => PaymentMethod::where('client_id', $service->client_id)->whereNull('removed_at')->orderByDesc('is_default')->latest('id')->first(),
             'hasSecrets' => ! empty($service->secrets),
             'canChangePlan' => $canChange,
             'planOptions' => $canChange ? $this->planChanges->options($service) : collect(),

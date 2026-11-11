@@ -160,6 +160,19 @@ class DirectAdminModule extends AbstractModule
         return ['login' => 'Log in to DirectAdmin', 'reset_password' => 'Reset password'];
     }
 
+    public function clientDetails(Service $service): ?array
+    {
+        $ns = array_filter([$service->data('nameserver1'), $service->data('nameserver2')]);
+
+        return array_filter([
+            'Domain' => $service->data('domain'),
+            'Username' => $service->data('username'),
+            'Server' => $service->data('server'),
+            'IP address' => $service->data('ip'),
+            'Nameservers' => $ns ? implode(', ', $ns) : null,
+        ]);
+    }
+
     public function runAction(Service $service, string $action, string $area): ProvisionResult
     {
         return match ($action) {

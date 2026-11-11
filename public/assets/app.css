@@ -1543,3 +1543,42 @@ table.t td .subject:hover { text-decoration: underline; }
 .color-field input[type="text"] { width: 120px; }
 .color-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .color-chip { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: var(--radius-md); background: var(--c); color: var(--f); font-size: 12.5px; font-weight: 500; }
+
+/* Customer service page */
+.svc-hero { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
+.svc-hero h1 { font-size: 24px; letter-spacing: -0.02em; margin: 0 0 8px; overflow-wrap: anywhere; }
+.svc-sub { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--muted-foreground); font-size: 14px; }
+.svc-hero-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.svc-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+.svc-main, .svc-aside { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+@media (max-width: 860px) { .svc-cols { grid-template-columns: minmax(0, 1fr); } }
+.svc-card { padding: 20px; margin: 0; }
+.svc-card > h2 { font-size: 15px; margin: 0 0 14px; }
+.svc-card > h2 + .svc-lead { margin-top: -10px; }
+.svc-lead, .svc-break { color: var(--muted-foreground); font-size: 13px; margin: 0 0 14px; }
+.svc-addr { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; padding: 10px 12px 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--muted); margin-bottom: 14px; }
+.svc-addr a { font-weight: 600; overflow-wrap: anywhere; min-width: 0; flex: 1 1 200px; }
+.svc-k { color: var(--muted-foreground); font-size: 13px; }
+.svc-facts, .svc-kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 0 0 14px; font-size: 14px; }
+.svc-facts dt, .svc-kv dt { color: var(--muted-foreground); }
+.svc-facts { grid-template-columns: minmax(96px, 150px) minmax(0, 1fr); }
+.svc-facts dd { margin: 0; overflow-wrap: anywhere; }
+.svc-kv dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.svc-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.svc-acts form { margin: 0; }
+.svc-item { display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 14px 0; border-top: 1px solid var(--border); margin: 0; }
+.svc-item:first-of-type, h2 + .svc-item, .svc-lead + .svc-item { border-top: 0; padding-top: 0; }
+.svc-item > div { min-width: 0; }
+.svc-item .btn { flex: none; }
+.svc-d { display: block; color: var(--muted-foreground); font-size: 13px; margin-top: 2px; }
+.svc-total { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.svc-total span { font-size: 13px; font-weight: 400; color: var(--muted-foreground); letter-spacing: 0; }
+.svc-bill .svc-break { margin: 2px 0 14px; }
+.svc-plan summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
+.svc-plan summary::-webkit-details-marker { display: none; }
+.svc-plan summary h2 { margin: 0 0 4px; }
+.svc-plan summary .svc-break { margin: 0; }
+.svc-plan[open] summary { margin-bottom: 14px; }
+.svc-cancel > summary { cursor: pointer; font-size: 13px; color: var(--muted-foreground); padding: 4px 2px; }
+.svc-cancel[open] > summary { margin-bottom: 12px; }
+@media (max-width: 520px) { .svc-addr .svc-k { flex-basis: 100%; } .svc-addr a { flex-basis: 100%; } .svc-addr .btn { margin-left: auto; } .svc-facts { grid-template-columns: 96px minmax(0, 1fr); gap: 8px 12px; } }

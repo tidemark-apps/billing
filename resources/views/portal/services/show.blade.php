@@ -1,15 +1,35 @@
 @extends('layouts.app', ['area' => 'portal'])
 @section('title', $service->title())
 @section('content')
-<x-page-head :title="$service->title()" :back="route('portal.services.index')" back-label="Services">
-    @if (\App\Services\TicketService::enabled())<a class="btn" href="{{ route('portal.tickets.create', ['service' => $service->uuid]) }}"><x-icon name="life-buoy" :size="15" /> Get help</a>@endif</x-page-head>
+@php
+    $isActive = $service->status === \App\Enums\ServiceStatus::Active;
+    $primaryKey = array_key_exists('login', $actions) ? 'login' : array_key_first($actions);
+    $secondary = collect($actions)->except($primaryKey ?? '')->all();
+    $address = null;
+    $facts = [];
+    foreach (($details ?? collect(($service->provision ?? []))->filter(fn ($v) => is_scalar($v))->mapWithKeys(fn ($v, $k) => [ucfirst(str_replace('_', ' ', $k)) => $v])->all()) as $label => $value) {
+        if (blank($value)) { continue; }
+        if ($address === null && str_starts_with((string) $value, 'https://')) { $address = ['label' => $label, 'value' => (string) $value]; continue; }
+        $facts[$label] = $value;
+    }
+    $recurring = $service->billing_cycle->isRecurring();
+    $liveAddons = $addons->whereIn('status', [\App\Enums\ServiceStatus::Active, \App\Enums\ServiceStatus::Pending, \App\Enums\ServiceStatus::Suspended]);
+    $total = $service->amount + $liveAddons->sum('amount');
+@endphp
+<div class="svc-hero">
+    <div>
+        <div class="crumb"><a href="{{ route('portal.services.index') }}"><x-icon name="chevron-left" :size="14" /> Services</a></div>
+        <h1>{{ $service->title() }}</h1>
+        <div class="svc-sub"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif
+            <span>{{ $service->product?->name }}@if ($recurring) · {{ money($service->amount, $service->currency) }} {{ $service->billing_cycle->suffix() }}@endif
+            @if ($service->cancel_at_period_end && $service->next_due_date) · ends {{ $service->next_due_date->format('j M Y') }}@elseif ($recurring && $service->next_due_date && $isActive) · renews {{ $service->next_due_date->format('j M Y') }}@endif</span></div>
+    </div>
+    <div class="svc-hero-actions">
+        @if (\App\Services\TicketService::enabled())<a class="btn" href="{{ route('portal.tickets.create', ['service' => $service->uuid]) }}"><x-icon name="life-buoy" :size="15" /> Get help</a>@endif
+        @if ($primaryKey)<form method="POST" action="{{ route('portal.services.action', [$service, $primaryKey]) }}">@csrf<button class="btn primary lg" type="submit">{{ $actions[$primaryKey] }} <x-icon name="external-link" :size="15" /></button></form>@endif
+    </div>
+</div>
 <x-order-placed />
-<section class="card sumhead" aria-label="Service summary">
-    <div class="sh-item"><span class="sh-k">Status</span><span class="sh-v"><x-status :status="$service->status" />@if ($service->onTrial()) <span class="pill">Trial</span>@endif</span><span class="sh-c">{{ $service->cancel_at_period_end ? 'Cancels at end of period' : ($service->activated_at ? 'Active since '.$service->activated_at->format('j M Y') : '') }}</span></div>
-    <div class="sh-item"><span class="sh-k">Next due</span><span class="sh-v">{{ $service->next_due_date?->format('j M Y') ?? '—' }}</span><span class="sh-c">{{ $service->next_due_date ? $service->next_due_date->diffForHumans() : '' }}</span></div>
-    <div class="sh-item"><span class="sh-k">Price</span><span class="sh-v big">{{ money($service->amount, $service->currency) }}</span><span class="sh-c">{{ $service->billing_cycle->suffix() }}</span></div>
-    <div class="sh-item"><span class="sh-k">Billing cycle</span><span class="sh-v">{{ $service->billing_cycle->label() }}</span><span class="sh-c">{{ $service->currency }}</span></div>
-</section>
 @if ($service->cancel_at_period_end)<div class="notice warn"><x-icon name="triangle-alert" :size="16" /><div>This service is set to cancel on {{ $service->next_due_date?->format('j M Y') }}.</div></div>@endif
 @if ($service->onTrial())
 <div class="notice"><x-icon name="info" :size="16" /><div><b>Free trial until {{ $service->trial_ends_at->format('j M Y') }}.</b> After that it is {{ money($service->amount, $service->currency) }} {{ $service->billing_cycle->suffix() }}. You can cancel any time before then and you will not be charged.</div></div>
@@ -23,53 +43,35 @@
     @foreach (session('revealed') as $k => $v)<div class="stack sm mt-8"><span class="muted small">{{ ucfirst(str_replace('_', ' ', $k)) }}</span><div class="secret-box"><span class="grow">{{ is_scalar($v) ? $v : json_encode($v) }}</span><button class="btn sm" type="button" data-copy="{{ is_scalar($v) ? $v : json_encode($v) }}">Copy</button></div></div>@endforeach
 </x-card>
 @endif
-<x-card title="Details">
-    <dl class="kv wide">
-        <dt>Product</dt><dd>{{ $service->product?->name ?? '—' }}</dd>
-        @if ($service->label)<dt>Reference</dt><dd>{{ $service->label }}</dd>@endif
-        @if ($service->activated_at)<dt>Active since</dt><dd>{{ $service->activated_at->format('j M Y') }}</dd>@endif
-        @if ($details !== null)
-            @foreach ($details as $label => $value)@continue(blank($value))<dt>{{ $label }}</dt><dd>@if (str_starts_with((string) $value, 'https://'))<a class="link-underline" href="{{ $value }}" rel="noopener">{{ $value }}</a>@else{{ $value }}@endif</dd>@endforeach
-        @else
-            @foreach (($service->provision ?? []) as $k => $v)@if (is_scalar($v))<dt>{{ ucfirst(str_replace('_', ' ', $k)) }}</dt><dd>{{ $v }}</dd>@endif @endforeach
-        @endif
-    </dl>
-</x-card>
-@if ($actions || $hasSecrets)
-<x-card title="Manage">
-    <div class="row wrap">
-        @foreach ($actions as $key => $label)<form method="POST" action="{{ route('portal.services.action', [$service, $key]) }}">@csrf<button class="btn" type="submit">{{ $label }}</button></form>@endforeach
-        @if ($hasSecrets)<form method="POST" action="{{ route('portal.services.reveal', $service) }}">@csrf<button class="btn" type="submit"><x-icon name="eye" :size="15" /> Reveal credentials</button></form>@endif
+<div class="svc-cols">
+<div class="svc-main">
+@if ($address || $facts || $secondary || $hasSecrets)
+<section class="card svc-card">
+    <h2>{{ $service->isAddon() ? 'About this add-on' : 'Your service' }}</h2>
+    @if ($address)
+    <div class="svc-addr"><span class="svc-k">{{ $address['label'] }}</span><a class="link-underline" href="{{ $address['value'] }}" rel="noopener">{{ $address['value'] }}</a><button class="btn sm" type="button" data-copy="{{ $address['value'] }}">Copy</button></div>
+    @endif
+    @if ($facts)
+    <dl class="svc-facts">@foreach ($facts as $label => $value)<dt>{{ $label }}</dt><dd>{{ $value }}</dd>@endforeach</dl>
+    @endif
+    @if ($secondary || $hasSecrets)
+    <div class="svc-acts">
+        @foreach ($secondary as $key => $label)<form method="POST" action="{{ route('portal.services.action', [$service, $key]) }}">@csrf<button class="btn sm" type="submit">{{ $label }}</button></form>@endforeach
+        @if ($hasSecrets)<form method="POST" action="{{ route('portal.services.reveal', $service) }}">@csrf<button class="btn sm" type="submit"><x-icon name="eye" :size="14" /> Reveal credentials</button></form>@endif
     </div>
-</x-card>
+    @endif
+</section>
 @endif
 @include('portal.services._addons')
-@if ($canChangePlan && ($preview || $planOptions->isNotEmpty()))
-<x-card title="Change plan">
-    @if ($preview)
-        <p class="muted small mb-16">Here is what changes. Nothing happens until you confirm.</p>
-        @include('portal.services._plan-preview', ['preview' => $preview, 'staff' => false])
-        <form method="POST" action="{{ route('portal.services.plan-change.store', $service) }}" class="row mt-16">@csrf
-            <input type="hidden" name="plan" value="{{ $selected['plan'] }}">
-            <button class="btn primary" type="submit">Confirm change</button><a class="btn" href="{{ route('portal.services.show', $service) }}">Back</a>
-        </form>
-    @else
-        <form method="POST" action="{{ route('portal.services.plan-change.preview', $service) }}" class="stack">@csrf
-            <label><span>Switch to</span>
-                <select name="plan" required>
-                    @foreach ($planOptions->groupBy(fn ($o) => $o['product']->name) as $name => $opts)
-                        <optgroup label="{{ $name }}">@foreach ($opts as $o)<option value="{{ $o['product']->id }}:{{ $o['cycle']->value }}">{{ $o['cycle']->label() }} · {{ money($o['amount'], $service->currency) }} {{ $o['cycle']->suffix() }}</option>@endforeach</optgroup>
-                    @endforeach
-                </select>
-            </label>
-            <p class="help">Upgrades start today and you pay only the difference for the rest of the period. Downgrades apply at your next renewal.</p>
-            <div><button class="btn" type="submit">Preview change</button></div>
-        </form>
-    @endif
-</x-card>
+@if ($preview && $canChangePlan)
+<section class="card svc-card"><h2>Change plan</h2>
+@include('portal.services._plan')
+</section>
 @endif
 @include('portal.usage.panel', ['service' => $service])
 {!! extensions('portal.service', ['service' => $service]) !!}
+<details class="svc-cancel">
+<summary>{{ $service->isAddon() ? 'Remove this add-on…' : 'Cancel this service…' }}</summary>
 @if (in_array($service->status->value, ['active', 'suspended', 'pending']) && ! $service->cancel_at_period_end)
 @php
     $cancelMode = \App\Services\Cancellations::mode();
@@ -98,4 +100,31 @@
     <div class="setting-f"><span></span><button class="btn destructive sm" type="submit">{{ $service->isAddon() ? 'Remove add-on' : ($cancelNow || $cancelChoice ? 'Cancel service' : 'Request cancellation') }}</button></div>
 </form>
 @endif
+</details>
+</div>
+<aside class="svc-aside">
+<section class="card svc-card svc-bill">
+    <h2>Billing</h2>
+    @if ($recurring)
+    <div class="svc-total">{{ money($total, $service->currency) }} <span>{{ $service->billing_cycle->suffix() }}</span></div>
+    @if ($liveAddons->isNotEmpty() && ! $service->isAddon())<p class="svc-break">{{ $service->product?->name }} {{ money($service->amount, $service->currency) }}@foreach ($liveAddons as $a) + {{ $a->product?->name }} {{ money($a->amount, $a->currency) }}@endforeach</p>@endif
+    @else
+    <div class="svc-total">{{ money($service->amount, $service->currency) }} <span>one-off</span></div>
+    @endif
+    <dl class="svc-kv">
+        @if ($service->next_due_date)<dt>{{ $service->cancel_at_period_end ? 'Ends' : 'Next payment' }}</dt><dd>{{ $service->next_due_date->format('j M Y') }}</dd>@endif
+        <dt>Cycle</dt><dd>{{ $service->billing_cycle->label() }}</dd>
+        @if ($paymentMethod)<dt>Pays with</dt><dd>{{ $paymentMethod->displayName() }}</dd>@endif
+        @if ($service->activated_at)<dt>Active since</dt><dd>{{ $service->activated_at->format('j M Y') }}</dd>@endif
+    </dl>
+    <div class="svc-acts"><a class="btn sm" href="{{ route('portal.invoices.index') }}">Invoices</a><a class="btn sm" href="{{ route('portal.payment-methods.index') }}">Payment methods</a></div>
+</section>
+@if ($canChangePlan && ! $preview && $planOptions->isNotEmpty())
+<details class="card svc-card svc-plan">
+    <summary><span><h2>Plan</h2><span class="svc-break">You are on <b>{{ $service->product?->name }}</b>.</span></span><span class="btn sm">Change plan</span></summary>
+@include('portal.services._plan')
+</details>
+@endif
+</aside>
+</div>
 @endsection
