@@ -383,6 +383,28 @@
                         "type": "boolean",
                         "description": "Staff tokens only: a saved payment method is needed to start a trial"
                     },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "plan",
+                            "addon"
+                        ],
+                        "description": "An add-on is attached to an existing service instead of being ordered on its own"
+                    },
+                    "addon_for": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "description": "Plan product ids an add-on can be attached to; empty = any plan"
+                    },
+                    "grants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Features an active add-on grants to the plan's provisioning module, e.g. whitelabel"
+                    },
                     "allow_plan_changes": {
                         "type": "boolean",
                         "description": "Staff tokens only: customers may switch from this plan themselves"
@@ -1388,6 +1410,25 @@
                     },
                     "trial_requires_payment_method": {
                         "type": "boolean"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "plan",
+                            "addon"
+                        ]
+                    },
+                    "addon_for": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "grants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "allow_plan_changes": {
                         "type": "boolean",

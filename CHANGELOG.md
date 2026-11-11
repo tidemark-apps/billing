@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-11
+
 ### Added
 - Add-ons. A product can now be an add-on (Products → Type) that customers or staff attach to an existing service from the service page. An add-on is its own service on the plan's billing cycle and renewal date, so renewals put both on one invoice. Adding one mid-period charges the days left, a plan on a free trial gets it free until the trial ends, and suspending, cancelling or terminating the plan does the same to its add-ons. Add-ons are not listed in the store, can be limited to certain plans, and can "grant" a feature to the plan's provisioning module. The billing cycle of a plan cannot change while it has add-ons. Products in the admin API have `kind`, `addon_for` and `grants`.
 - White label. A hosted install whose plan file has `"whitelabel": true` hides the "Powered by Tidemark Billing" footers and the Tidemark favicon, and shows the company logo or name in the admin header. `php artisan billing:usage` reports the flag.
