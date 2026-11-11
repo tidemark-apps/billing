@@ -7,6 +7,7 @@
     <form method="POST" action="{{ route('portal.services.addons.store', $service) }}" class="row spread mt-16" data-confirm="Add {{ $o['product']->name }}?">@csrf
         <input type="hidden" name="product_id" value="{{ $o['product']->id }}">
         <span><b>{{ $o['product']->name }}</b> · {{ money($o['amount'], $service->currency) }} {{ $service->billing_cycle->suffix() }}
+            @if (trim((string) $o['product']->description))<span class="help">{{ $o['product']->description }}</span>@endif
             <span class="help">@if ($o['preview']['trial'])Free until your trial ends.@elseif ($o['preview']['charge'] > 0)You pay {{ money($o['preview']['charge'], $service->currency) }} now for the rest of this period, then it renews with the service.@else Starts now and renews with the service.@endif</span></span>
         <button class="btn" type="submit">Add</button>
     </form>

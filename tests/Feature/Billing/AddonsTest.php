@@ -314,4 +314,17 @@ class AddonsTest extends TestCase
         $this->assertStringNotContainsString('{&quot;host&quot;', $html);
         $this->assertStringNotContainsString('"host":', $html);
     }
+
+    public function test_an_addon_service_cannot_be_plan_changed_by_customers_or_staff(): void
+    {
+        $parent = $this->parent(Client::factory()->create());
+        $addon = $this->addon(1000, ['allow_plan_changes' => true]);
+        $child = app(AddonService::class)->add($parent, $addon)['service'];
+        app(PaymentService::class)->record($child->invoiceItems()->first()->invoice, 'test', $child->invoiceItems()->first()->invoice->total, 'x');
+        $child->refresh();
+
+        $this->assertSame(ServiceStatus::Active, $child->status);
+        $this->assertFalse(app(PlanChangeService::class)->changeable($child));
+        $this->assertFalse(app(PlanChangeService::class)->customerCanChange($child));
+    }
 }

@@ -42,6 +42,7 @@ class PlanChangeService
     public function changeable(Service $service): bool
     {
         return $service->status === ServiceStatus::Active
+            && ! $service->isAddon()   // an add-on follows its plan; it is added or removed, never switched to another plan
             && ! $service->cancel_at_period_end
             && $service->billing_cycle->isRecurring()
             && $service->next_due_date !== null

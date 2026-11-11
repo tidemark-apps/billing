@@ -75,11 +75,11 @@
     $termEnd = $service->next_due_date?->format('j M Y');
     $refundNote = $refundPreview ? 'You will be refunded '.money($refundPreview['amount'], $refundPreview['currency']).' for the '.$refundPreview['remaining_days'].' unused '.\Illuminate\Support\Str::plural('day', $refundPreview['remaining_days']).', to your original payment method.' : null;
 @endphp
-<form class="card setting danger-zone" method="POST" action="{{ route('portal.services.cancel', $service) }}" data-confirm="{{ $cancelChoice ? 'Cancel this service?' : ($cancelNow ? 'Cancel this service now? It stops working straight away.' : 'Cancel this service? It stays active until '.$termEnd.'.') }}" data-danger data-confirm-label="Cancel service">@csrf
-    <div class="setting-h"><h2>Cancel service</h2><p>
+<form class="card setting danger-zone" method="POST" action="{{ route('portal.services.cancel', $service) }}" data-confirm="{{ $cancelChoice ? 'Cancel this service?' : ($cancelNow ? 'Cancel this service now? It stops working straight away.' : 'Cancel this service? It stays active until '.$termEnd.'.') }}" data-danger data-confirm-label="{{ $service->isAddon() ? 'Remove add-on' : 'Cancel service' }}">@csrf
+    <div class="setting-h"><h2>{{ $service->isAddon() ? 'Remove add-on' : 'Cancel service' }}</h2><p>
         @if ($cancelChoice)Choose when it ends.
         @elseif ($cancelNow)Your service ends straight away.@if ($cancelMode === 'immediate' && $refundNote) {{ $refundNote }}@endif
-        @else Your service stays active until the end of the paid period{{ $termEnd ? ' ('.$termEnd.')' : '' }}.
+        @else Your {{ $service->isAddon() ? 'add-on' : 'service' }} stays active until the end of the paid period{{ $termEnd ? ' ('.$termEnd.')' : '' }}.
         @endif
     </p></div>
     <div class="setting-b stack">
@@ -91,7 +91,7 @@
         @endif
         <x-field name="reason" label="Reason (optional)" />
     </div>
-    <div class="setting-f"><span></span><button class="btn destructive sm" type="submit">{{ $cancelNow || $cancelChoice ? 'Cancel service' : 'Request cancellation' }}</button></div>
+    <div class="setting-f"><span></span><button class="btn destructive sm" type="submit">{{ $service->isAddon() ? 'Remove add-on' : ($cancelNow || $cancelChoice ? 'Cancel service' : 'Request cancellation') }}</button></div>
 </form>
 @endif
 @endsection
