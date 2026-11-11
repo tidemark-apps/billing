@@ -1042,6 +1042,7 @@ table.t tr.click:hover .cell-l .t { color: var(--brand-ink); }
 .kv .kv-sub dt { color: var(--muted-foreground); }
 .kv .kv-sub dd { font-weight: 400; }
 .kv.wide { grid-template-columns: 180px 1fr; font-size: 14px; gap: 10px 16px; }
+@media (max-width: 520px) { .kv.wide { grid-template-columns: 112px 1fr; gap: 10px 12px; } }
 .doc { padding: 0; overflow: hidden; }
 .doc-head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: 28px 32px 20px; }
 .doc-meta { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }

@@ -28,7 +28,11 @@
         <dt>Product</dt><dd>{{ $service->product?->name ?? '—' }}</dd>
         @if ($service->label)<dt>Reference</dt><dd>{{ $service->label }}</dd>@endif
         @if ($service->activated_at)<dt>Active since</dt><dd>{{ $service->activated_at->format('j M Y') }}</dd>@endif
-        @foreach (($service->provision ?? []) as $k => $v)@if (is_scalar($v))<dt>{{ ucfirst(str_replace('_', ' ', $k)) }}</dt><dd>{{ $v }}</dd>@endif @endforeach
+        @if ($details !== null)
+            @foreach ($details as $label => $value)@continue(blank($value))<dt>{{ $label }}</dt><dd>@if (str_starts_with((string) $value, 'https://'))<a class="link-underline" href="{{ $value }}" rel="noopener">{{ $value }}</a>@else{{ $value }}@endif</dd>@endforeach
+        @else
+            @foreach (($service->provision ?? []) as $k => $v)@if (is_scalar($v))<dt>{{ ucfirst(str_replace('_', ' ', $k)) }}</dt><dd>{{ $v }}</dd>@endif @endforeach
+        @endif
     </dl>
 </x-card>
 @if ($actions || $hasSecrets)

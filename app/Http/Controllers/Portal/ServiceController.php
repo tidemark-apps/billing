@@ -52,7 +52,8 @@ class ServiceController extends PortalController
 
         return view('portal.services.show', [
             'service' => $service,
-            'actions' => $module && $service->status === ServiceStatus::Active ? $module->clientActions() : [],
+            'actions' => $module && $service->status === ServiceStatus::Active ? (method_exists($module, 'clientActionsFor') ? $module->clientActionsFor($service) : $module->clientActions()) : [],
+            'details' => $module && method_exists($module, 'clientDetails') ? $module->clientDetails($service) : null,
             'hasSecrets' => ! empty($service->secrets),
             'canChangePlan' => $canChange,
             'planOptions' => $canChange ? $this->planChanges->options($service) : collect(),

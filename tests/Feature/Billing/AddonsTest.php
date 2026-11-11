@@ -9,12 +9,15 @@ use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\User;
+use App\Plugins\AbstractModule;
+use App\Plugins\ModuleRegistry;
 use App\Services\AddonService;
 use App\Services\BillingRunner;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\PlanChangeService;
 use App\Services\ProvisioningService;
+use App\Support\ProvisionResult;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -326,5 +329,40 @@ class AddonsTest extends TestCase
         $this->assertSame(ServiceStatus::Active, $child->status);
         $this->assertFalse(app(PlanChangeService::class)->changeable($child));
         $this->assertFalse(app(PlanChangeService::class)->customerCanChange($child));
+    }
+
+    public function test_a_module_can_choose_what_the_customer_sees_in_the_details_card(): void
+    {
+        $module = new class extends AbstractModule
+        {
+            public function key(): string
+            {
+                return 'fakehost';
+            }
+
+            public function label(): string
+            {
+                return 'Fake host';
+            }
+
+            public function create(Service $service): ProvisionResult
+            {
+                return ProvisionResult::ok('ok');
+            }
+
+            public function clientDetails(Service $service): ?array
+            {
+                return ['Address' => (string) $service->data('url')];
+            }
+        };
+        app(ModuleRegistry::class)->register($module);
+        $user = $this->customer();
+        $product = Product::factory()->priced(1000)->create(['name' => 'Hosted', 'module' => 'fakehost']);
+        $service = Service::create(['client_id' => $user->client->id, 'product_id' => $product->id, 'status' => ServiceStatus::Active, 'billing_cycle' => BillingCycle::Monthly, 'currency' => 'USD', 'amount' => 1000, 'next_due_date' => now()->addDays(10), 'activated_at' => now(),
+            'provision' => ['slug' => 'acme', 'url' => 'https://acme.example.com', 'port' => 20005, 'node_state' => 'running']]);
+
+        $this->actingAs($user)->get(route('portal.services.show', $service))->assertOk()
+            ->assertSee('Address')->assertSee('href="https://acme.example.com"', false)
+            ->assertDontSee('20005')->assertDontSee('Node state')->assertDontSee('Slug');
     }
 }

@@ -4,6 +4,16 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- A provisioning module can choose what the customer sees in the Details card of their service page (`clientDetails()`) and name the customer's buttons per service (`clientActionsFor()`). Modules that do neither behave as before.
+
+### Changed
+- An add-on service no longer offers "Change plan", and its cancel card reads "Remove add-on".
+- On narrow screens the label column of detail lists is narrower, so values have room.
+
+### Fixed
+- Add-on descriptions and prices on the plan page are visible before the box is ticked, and the add-on list on a customer's service page shows the description.
+
 ## [0.7.1] - 2026-11-11
 
 ### Added

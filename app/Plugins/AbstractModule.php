@@ -66,6 +66,23 @@ abstract class AbstractModule implements ProvisioningModule
         return [];
     }
 
+    /** The customer's buttons for one service; override when they depend on the service. Defaults to {@see clientActions()}. @return array<string, string> */
+    public function clientActionsFor(Service $service): array
+    {
+        return $this->clientActions();
+    }
+
+    /**
+     * What the customer sees in the Details card of their service page, as label => value. Return null (the default) to show every
+     * simple value the module stored; return an array to show only what a customer needs. A value that starts with https:// is a link.
+     *
+     * @return array<string, string>|null
+     */
+    public function clientDetails(Service $service): ?array
+    {
+        return null;
+    }
+
     public function runAction(Service $service, string $action, string $area): ProvisionResult
     {
         return ProvisionResult::fail("Unknown action \"$action\".");
