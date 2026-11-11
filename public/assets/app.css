@@ -1590,4 +1590,4 @@ table.t td .subject:hover { text-decoration: underline; }
 .co-group > legend + * { clear: both; }
 @media (max-width: 560px) { .co-form .grid2 { grid-template-columns: minmax(0, 1fr); } }
 .co-login { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--muted-foreground); }
-@media (min-width: 761px) { .co-summary { position: sticky; top: 16px; } }
+@media (min-width: 761px) { .co-summary { position: sticky; top: calc(var(--topbar-h) + 16px); } }
