@@ -20,6 +20,14 @@ class WhitelabelTest extends TestCase
         config(['billing.plan_file' => $file]);
     }
 
+    public function test_the_client_area_footer_hides_the_version_but_the_admin_one_keeps_it(): void
+    {
+        $version = 'v'.config('billing.version');
+
+        $this->actingAs($this->customer())->get(route('portal.dashboard'))->assertOk()->assertSee('Powered by')->assertDontSee($version);
+        $this->actingAs($this->admin())->get('/admin')->assertOk()->assertSee('Powered by')->assertSee($version);
+    }
+
     public function test_off_by_default_and_without_a_plan_file(): void
     {
         $this->assertFalse(Plan::whitelabel());

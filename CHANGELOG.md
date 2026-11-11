@@ -9,6 +9,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - A provisioning module can choose what the customer sees in the Details card of their service page (`clientDetails()`) and name the customer's buttons per service (`clientActionsFor()`). Modules that do neither behave as before.
 
 ### Changed
+- The "Powered by" footer in the client area no longer shows the version number. Staff pages still do.
 - The customer's service page is reorganised around what people do there: a header with the status, price and renewal date and one primary button (the module's login action), a "Your service" card with the address and details, add-ons, and a billing side column with the total including add-ons, next payment, payment method and a plan switcher. Cancelling moves to a "Cancel this service…" line at the bottom. On a phone the billing column sits below.
 - The cPanel, DirectAdmin and Enhance modules show customers only what they need (domain, username, server, nameservers) instead of every stored id.
 - An add-on service no longer offers "Change plan", and its cancel card reads "Remove add-on".

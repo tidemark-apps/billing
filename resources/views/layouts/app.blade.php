@@ -98,7 +98,7 @@
                 @include('partials.flash')
                 @include('partials.host-notices')
                 @yield('content')
-                @unless (\App\Support\Plan::whitelabel())<p class="muted small" style="text-align:center;padding-top:24px">Powered by <a href="{{ config('billing.product_url') }}" rel="noopener" style="text-decoration:underline;text-underline-offset:3px">Tidemark Billing</a> v{{ config('billing.version') }}</p>@endunless
+                @unless (\App\Support\Plan::whitelabel())<p class="muted small" style="text-align:center;padding-top:24px">Powered by <a href="{{ config('billing.product_url') }}" rel="noopener" style="text-decoration:underline;text-underline-offset:3px">Tidemark Billing</a>@if (($area ?? null) !== 'portal') v{{ config('billing.version') }}@endif</p>@endunless
             </div>
         </main>
     </div>
